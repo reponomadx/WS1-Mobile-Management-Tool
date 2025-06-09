@@ -20,6 +20,12 @@ Whether managing 10 or 10,000 devices, this menu-driven utility accelerates admi
 
 ---
 
+## 🖥️ Tool Interface Preview
+
+![Menu Interface](https://raw.githubusercontent.com/reponomadx/WS1-Mobile-Management-Tool/main/WS1-Mobile-Management-Tool.jpg)
+
+---
+
 ## ✅ Core Features
 
 - 🔁 Restart devices across assignment groups
