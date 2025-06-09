@@ -6,7 +6,7 @@
 [![WorkspaceONE](https://img.shields.io/badge/WorkspaceONE-API_Integrated-blueviolet.svg)](https://developer.vmware.com/apis/ws1/)
 [![GroundControl](https://img.shields.io/badge/GroundControl-Compatible-yellow.svg)](https://www.imprivata.com/groundcontrol)
 
-The **WS1 Mobile Management Tool** is a PowerShell-based suite designed to streamline and automate common device management tasks within VMware Workspace ONE UEM environments. Originally developed in a healthcare enterprise setting, this tool enables administrators to perform high-frequency, high-impact operations from a centralized, interactive CLI interface—bypassing the need to navigate the Workspace ONE web console.
+The **WS1 Mobile Management Tool** is a PowerShell-based suite designed to streamline and automate common device management tasks within VMware Workspace ONE UEM environments. Originally developed in a healthcare enterprise setting, this tool enables administrators or support to perform high-frequency, high-impact operations from a centralized, interactive CLI interface—bypassing the need to navigate the Workspace ONE web console.
 
 ---
 
