@@ -1,4 +1,4 @@
-# WS1 Mobile Management Tool
+# Workspace ONE Mobile Management Tool
 
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://docs.microsoft.com/powershell/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-lightgrey)](https://microsoft.com)
@@ -6,7 +6,7 @@
 [![WorkspaceONE](https://img.shields.io/badge/WorkspaceONE-API_Integrated-blueviolet.svg)](https://developer.vmware.com/apis/ws1/)
 [![GroundControl](https://img.shields.io/badge/GroundControl-Compatible-yellow.svg)](https://www.imprivata.com/groundcontrol)
 
-The **WS1 Mobile Management Tool** is a PowerShell-based suite designed to streamline and automate common device management tasks within VMware Workspace ONE UEM environments. Originally developed in a healthcare enterprise setting, this tool enables administrators or support to perform high-frequency, high-impact operations from a centralized, interactive CLI interface—bypassing the need to navigate the Workspace ONE web console.
+The **Workspace ONE Mobile Management Tool** is a PowerShell-based suite designed to streamline and automate common device management tasks within Omnissa Workspace ONE UEM environments. Originally developed in a healthcare enterprise setting, this tool enables administrators or support to perform high-frequency, high-impact operations from a centralized, interactive CLI interface—bypassing the need to navigate the Workspace ONE web console.
 
 ---
 
@@ -16,7 +16,7 @@ Built with modularity in mind, this toolkit leverages the Workspace ONE REST API
 Whether managing 10 or 10,000 devices, this menu-driven utility accelerates administrative workflows by:
 - Reducing time-to-action
 - Abstracting API complexity
-- Logging each touchpoint
+- User access logs
 
 ---
 
@@ -62,9 +62,7 @@ WS1_Mobile_Management_Tool/
 ├── Profiles/                  # Assigned profile queries via /devices/profiles API
 ├── Restart Device/            # Soft reboot trigger via Workspace ONE API
 ├── UserLogs/                  # Optional: user search input history, action audit
-├── PREPROD_WS1-Mobile-Management-Tool.bat 	#Menu Launch # Primary launcher for the pre-production version of the PowerShell tool
 ├── WS1-Mobile-Management-Tool.bat	# Primary launcher for the production version of the PowerShell tool
-├── PREPROD_ChangeLog.log
 ├── PROD_ChangeLog.log
 ```
 
@@ -77,6 +75,7 @@ WS1_Mobile_Management_Tool/
 - OAuth2 credentials with at least:
   - `DeviceManagement` and `UserManagement` scopes
 - Internet access to WS1 API endpoints
+- The Mobile Management Tool is designed to run from a central server, allowing authorized users to access and execute it remotely over the network via a shared batch file or mapped drive.
 
 ---
 
@@ -85,7 +84,6 @@ WS1_Mobile_Management_Tool/
 Launch the tool using either of the `.bat` entry points:
 ```bat
 WS1-Mobile-Management-Tool.bat         # Production launcher
-PREPROD_WS1-Mobile-Management-Tool.bat # Testing/staging version
 ```
 
 ### 🧠 Menu System
@@ -101,29 +99,13 @@ PREPROD_WS1-Mobile-Management-Tool.bat # Testing/staging version
 - **OAuth 2.0** flow with client credentials grant
 - Tokens are retrieved via `https://na.uemauth.vmwservices.com/connect/token`
 - Cached as JSON at: `Oauth Token/ws1_token_cache.json`
-- Auto-renew logic refreshes tokens every hour based on timestamp delta
-
-Each script imports a shared `Get-WS1Token` function unless overridden for standalone use.
+- Token is renewed as needed but only once per hour when in use. 
 
 ---
 
-## 🧪 Testing
-
-Every major function has a PREPROD-safe version to:
-- Validate token and API access
-- Query without pushing changes (GET-only)
-- Simulate device and user queries without making updates
-
-Changelogs track stability of each script and validate code before it enters `PROD_ChangeLog.log`.
-
----
-
-## 📈 Roadmap (Planned Features)
-- GitHub-based packaging and version control
-- CI/CD script testing pipeline
-- PowerShell modules for import-based usage
-- Export to CSV/JSON toggle per script
-- WS1 Smart Group evaluation logic
+## ⁉️ Feedback
+- Open to suggestions
+- Open to receive comments and suggestions. 
 
 ---
 
