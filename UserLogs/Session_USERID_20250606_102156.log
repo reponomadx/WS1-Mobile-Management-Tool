@@ -1,0 +1,7 @@
+2025-06-08 15:45:24 | User: USERID | Host: HOSTNAME | Action: Session started
+2025-06-08 15:45:27 | User: USERID | Host: HOSTNAME | Action: Device(s) Details/Information
+2025-06-08 15:46:05 | User: USERID | Host: HOSTNAME | Action: Apps Query
+2025-06-08 15:46:16 | User: USERID | Host: HOSTNAME | Action: Apps Query
+2025-06-08 15:46:33 | User: USERID | Host: HOSTNAME | Action: App Install
+2025-06-08 15:46:54 | User: USERID | Host: HOSTNAME | Action: App Install
+2025-06-08 15:47:38 | User: USERID | Host: HOSTNAME | Action: Exited menu
