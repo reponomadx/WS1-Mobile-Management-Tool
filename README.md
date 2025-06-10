@@ -6,6 +6,8 @@
 [![WorkspaceONE](https://img.shields.io/badge/WorkspaceONE-API_Integrated-blueviolet.svg)](https://developer.vmware.com/apis/ws1/)
 [![GroundControl](https://img.shields.io/badge/GroundControl-Compatible-yellow.svg)](https://www.imprivata.com/groundcontrol)
 
+![Workspace ONE Tool](WS1-Mobile-Management-Tool.jpg)
+
 The Workspace ONE Mobile Management Tool is a modular, PowerShell-based utility built to streamline mobile device administration in enterprise environments.
 
 Originally developed in Bash for macOS support workflows, this tool has evolved into a cross-functional PowerShell suite that empowers IT teams to:
