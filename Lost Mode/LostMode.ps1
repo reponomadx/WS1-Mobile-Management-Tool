@@ -19,7 +19,7 @@ $tokenLifetimeSeconds = 3600
 # Workspace ONE environment details
 $ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
 $lostModeApiBase = "https://YOUR_OMNISSA_ENV.awmdm.com/api/mdm/devices"
-$tokenUrl = "https://na.uemauth.vmwservices.com/connect/token"
+$tokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
 $clientId = "YOUR_CLIENT_ID"
 $clientSecret = "YOUR_CLIENT_SECRET"
 
