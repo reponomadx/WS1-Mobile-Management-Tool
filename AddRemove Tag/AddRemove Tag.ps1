@@ -26,7 +26,7 @@ $TokenLifetimeSeconds = 3600
 $WS1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
 
 # OAuth token endpoint
-$TokenUrl = "https://na.uemauth.vmwservices.com/connect/token"
+$TokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
 
 # Workspace ONE client credentials (replace placeholders with actual values)
 $ClientId = "YOUR OMNISSA CLIENT ID"
