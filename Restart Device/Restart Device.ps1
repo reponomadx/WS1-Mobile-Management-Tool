@@ -19,7 +19,7 @@ $tokenLifetimeSeconds = 3600
 $ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
 $apiUrl = "$ws1EnvUrl/mdm/devices/commands/bulk?command=softreset&searchby=Serialnumber"
 
-$tokenUrl = "https://na.uemauth.vmwservices.com/connect/token"
+$tokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
 $clientId = "YOUR_CLIENT_ID"
 $clientSecret = "YOUR_CLIENT_SECRET"
 
