@@ -18,7 +18,7 @@ $TokenLifetimeSeconds = 3600  # 1 hour
 
 # Workspace ONE API configuration (replace with real values during deployment)
 $Ws1EnvUrl    = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TokenUrl     = "https://na.uemauth.vmwservices.com/connect/token"
+$TokenUrl     = "https://na.uemauth.workspaceone.com/connect/token"
 $ClientId     = "YOUR_CLIENT_ID"
 $ClientSecret = "YOUR_CLIENT_SECRET"
 $TenantCode   = "YOUR_TENANT_CODE"
