@@ -18,7 +18,7 @@ $TokenLifetimeSeconds = 3600  # Token cache duration
 
 # Workspace ONE API endpoints (replace with actual environment if deploying)
 $Ws1EnvUrl     = "https://YOUR_OMNISSA_ENV.awmdm.com"
-$TokenUrl      = "https://na.uemauth.vmwservices.com/connect/token"
+$TokenUrl      = "https://na.uemauth.workspaceone.com/connect/token"
 $ClientId      = "YOUR_CLIENT_ID"
 $ClientSecret  = "YOUR_CLIENT_SECRET"
 $OrgGroupUUID  = "YOUR_ORGGROUP_UUID"
