@@ -16,7 +16,7 @@ $TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
 $TokenLifetimeSeconds = 3600
 
 $Ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TokenUrl = "https://na.uemauth.vmwservices.com/connect/token"
+$TokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
 $ClientId = "YOUR_CLIENT_ID"
 $ClientSecret = "YOUR_CLIENT_SECRET"
 
