@@ -10,16 +10,10 @@
 # -------------------------------
 # CONFIGURATION
 # -------------------------------
-# Token and output directory paths (update as needed)
-$OAuthDir = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
-$TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
+# Token and output directory paths
+$TokenCacheFile = "\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cache.json"
 $TokenLifetimeSeconds = 3600
-
 $Ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
-$ClientId = "YOUR_CLIENT_ID"
-$ClientSecret = "YOUR_CLIENT_SECRET"
-
 $OutputDir = "\\HOST_SERVER\MobileManagementTool\Profiles"
 $CsvFile = "$HOME\Downloads\device_profiles.csv"
 
@@ -34,7 +28,7 @@ if (-not (Test-Path (Split-Path $CsvFile))) { New-Item -Path (Split-Path $CsvFil
 
 # -------------------------------
 # FUNCTION: Get-WS1Token
-# Retrieves and caches an OAuth access token
+# Retrieves and uses a cached OAuth access token
 # -------------------------------
 function Get-WS1Token {
     if (Test-Path $TokenCacheFile) {
@@ -44,21 +38,8 @@ function Get-WS1Token {
         }
     }
 
-    Write-Host "🔐 Requesting new Workspace ONE access token..."
-    $body = @{
-        grant_type    = "client_credentials"
-        client_id     = $ClientId
-        client_secret = $ClientSecret
-    }
-    $response = Invoke-RestMethod -Uri $TokenUrl -Method POST -Body $body -ContentType "application/x-www-form-urlencoded"
-
-    if (-not $response.access_token) {
-        Write-Host "❌ Failed to obtain access token. Exiting."
-        exit 1
-    }
-
-    $response | ConvertTo-Json | Set-Content -Path $TokenCacheFile
-    return $response.access_token
+    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # -------------------------------
