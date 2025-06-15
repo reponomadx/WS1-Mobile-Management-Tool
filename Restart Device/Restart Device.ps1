@@ -10,50 +10,24 @@
 # -------------------------------
 # CONFIGURATION
 # -------------------------------
-# Local token and working directory paths (update for your environment)
-$basePath = "\\HOST_SERVER\MobileManagementTool\Restart Device"
-$tokenCacheFile = "\\HOST_SERVER\MobileManagementTool\OAUTH Token\ws1_token_cache.json"
-$tokenLifetimeSeconds = 3600
-
-# Workspace ONE API endpoints and credentials
-$ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$apiUrl = "$ws1EnvUrl/mdm/devices/commands/bulk?command=softreset&searchby=Serialnumber"
-
-$tokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
-$clientId = "YOUR_CLIENT_ID"
-$clientSecret = "YOUR_CLIENT_SECRET"
-
-# Ensure token cache directory exists
-if (-not (Test-Path $basePath)) {
-    New-Item -ItemType Directory -Path $basePath -Force | Out-Null
-}
+$TokenCacheFile = "\\CSDME1\MobileManagementTool\Oauth Token\ws1_token_cache.json"
+$TokenLifetimeSeconds = 3600
+$ApiUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API/mdm/devices/commands/bulk?command=softreset&searchby=Serialnumber"
+$TenantCode = "YOUR_TENANT_CODE"
 
 # -------------------------------
 # FUNCTION: Get-WS1Token
-# Retrieves a valid OAuth token (uses cached token if still valid)
 # -------------------------------
 function Get-WS1Token {
-    $now = Get-Date
-    $cacheExists = Test-Path $tokenCacheFile
-
-    if ($cacheExists) {
-        $cacheAge = ($now - (Get-Item $tokenCacheFile).LastWriteTime).TotalSeconds
-        if ($cacheAge -lt $tokenLifetimeSeconds) {
-            $tokenData = Get-Content $tokenCacheFile | ConvertFrom-Json
-            return $tokenData.access_token
+    if (Test-Path $TokenCacheFile) {
+        $age = (Get-Date) - (Get-Item $TokenCacheFile).LastWriteTime
+        if ($age.TotalSeconds -lt $TokenLifetimeSeconds) {
+            return (Get-Content $TokenCacheFile | ConvertFrom-Json).access_token
         }
     }
 
-    Write-Host "🔐 Requesting new Workspace ONE access token..."
-
-    $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -ContentType "application/x-www-form-urlencoded" -Body @{
-        grant_type    = "client_credentials"
-        client_id     = $clientId
-        client_secret = $clientSecret
-    }
-
-    $response | ConvertTo-Json -Depth 10 | Out-File $tokenCacheFile -Encoding utf8
-    return $response.access_token
+    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # -------------------------------
@@ -64,11 +38,9 @@ Write-Host "🔄 Restart Device"
 
 # Prompt for serial numbers
 $input = Read-Host "Enter one or more 10- or 12-character serial numbers (comma-separated)"
-
-# Clean and split input
 $serials = @($input -split ',' | ForEach-Object { $_.Trim() })
 
-# Validate format of serial numbers
+# Validate
 foreach ($serial in $serials) {
     if ($serial.Length -ne 10 -and $serial.Length -ne 12) {
         Write-Host "❌ Invalid serial number: $serial (must be 10 or 12 characters)"
@@ -76,12 +48,9 @@ foreach ($serial in $serials) {
     }
 }
 
-# Show what will be processed
-echo ""
+# Confirm
 Write-Host "`n📋 You entered the following serial numbers:"
 $serials | ForEach-Object { Write-Host "- $_" }
-
-# Confirmation prompt
 $confirmation = if ($serials.Count -eq 1) {
     Read-Host "⚠️ Are you sure you want to reboot this device? [y/N]"
 } else {
@@ -92,22 +61,19 @@ if ($confirmation -notin @("y", "Y")) {
     exit 0
 }
 
-# Get OAuth token
-$accessToken = Get-WS1Token
+# Retrieve cached token
+$AccessToken = Get-WS1Token
 
-# Construct JSON payload for reboot
-$payload = @{
-    BulkValues = @{
-        Value = @($serials)
-    }
-} | ConvertTo-Json -Depth 10
+# Build payload
+$payload = @{ BulkValues = @{ Value = $serials } } | ConvertTo-Json -Depth 3
 
-# Submit reboot request to API
+# API call
 try {
-    $response = Invoke-RestMethod -Uri $apiUrl -Method Post -Headers @{
-        Authorization  = "Bearer $accessToken";
-        Accept         = "application/json";
-        "Content-Type" = "application/json"
+    $response = Invoke-RestMethod -Uri $ApiUrl -Method Post -Headers @{
+        Authorization   = "Bearer $AccessToken"
+        Accept          = "application/json"
+        "aw-tenant-code"= $TenantCode
+        "Content-Type"  = "application/json"
     } -Body $payload
 } catch {
     Write-Host "❌ API request failed:" -ForegroundColor Red
@@ -115,8 +81,7 @@ try {
     exit 1
 }
 
-# Display API response summary
-echo ""
+# Output summary
 Write-Host "`n✅ Response from Workspace ONE:"
 Write-Host "- Total Devices Processed: $($response.TotalItems)"
 Write-Host "- Successful Reboots: $($response.AcceptedItems)"
