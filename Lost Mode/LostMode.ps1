@@ -19,9 +19,6 @@ $tokenLifetimeSeconds = 3600
 # Workspace ONE environment details
 $ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
 $lostModeApiBase = "https://YOUR_OMNISSA_ENV.awmdm.com/api/mdm/devices"
-$tokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
-$clientId = "YOUR_CLIENT_ID"
-$clientSecret = "YOUR_CLIENT_SECRET"
 
 # -------------------------------
 # FUNCTION: Get-WS1Token
@@ -35,15 +32,8 @@ function Get-WS1Token {
         }
     }
 
-    # Request new token
-    $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Body @{
-        grant_type    = 'client_credentials'
-        client_id     = $clientId
-        client_secret = $clientSecret
-    } -ContentType "application/x-www-form-urlencoded"
-
-    $response | ConvertTo-Json | Out-File $tokenCacheFile
-    return $response.access_token
+    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # -------------------------------
@@ -54,7 +44,7 @@ Write-Host "Lost Mode"
 
 # Prompt for device serial numbers
 $input = Read-Host "Enter one or more 10 or 12-character serial numbers (comma-separated)"
-$serials = $input -replace '\s' -split ','
+$serials = $input -replace '\\s' -split ','
 
 # Validate input
 foreach ($serial in $serials) {
