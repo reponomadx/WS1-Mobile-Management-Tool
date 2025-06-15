@@ -18,9 +18,6 @@ $TokenLifetimeSeconds = 3600
 
 # Workspace ONE environment details (replace placeholders for deployment)
 $WS1EnvUrl    = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TokenUrl     = "https://na.uemauth.workspaceone.com/connect/token"
-$ClientId     = "YOUR_CLIENT_ID"
-$ClientSecret = "YOUR_CLIENT_SECRET"
 $TenantCode   = "YOUR_TENANT_CODE"
 
 # Output directory and file
@@ -39,7 +36,7 @@ Clear-Content -Path $OutputFile -ErrorAction SilentlyContinue
 # FUNCTIONS
 # --------------------------------
 
-# Retrieves a cached token if valid, or requests a new one
+# Retrieves a cached token if valid, or exits with warning
 function Get-WS1Token {
     if (Test-Path $TokenCacheFile) {
         $age = (Get-Date) - (Get-Item $TokenCacheFile).LastWriteTime
@@ -48,26 +45,8 @@ function Get-WS1Token {
         }
     }
 
-    Write-Host "🔐 Requesting new Workspace ONE access token..."
-    $body = @{
-        grant_type    = "client_credentials"
-        client_id     = $ClientId
-        client_secret = $ClientSecret
-    }
-
-    $response = Invoke-RestMethod -Uri $TokenUrl -Method POST -Body $body -ContentType "application/x-www-form-urlencoded"
-
-    if (-not $response.access_token) {
-        Write-Host "❌ Failed to obtain access token. Exiting."
-        exit 1
-    }
-
-    if (-not (Test-Path $OAuthDir)) {
-        New-Item -ItemType Directory -Path $OAuthDir | Out-Null
-    }
-
-    $response | ConvertTo-Json | Set-Content $TokenCacheFile
-    return $response.access_token
+    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # --------------------------------
