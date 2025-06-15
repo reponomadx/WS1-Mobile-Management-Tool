@@ -18,11 +18,8 @@ $OAuthDir = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
 $TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
 $TokenLifetimeSeconds = 3600  # Token validity duration (in seconds)
 
-# Workspace ONE API endpoint and credentials (placeholders)
+# Workspace ONE API endpoint (placeholder)
 $Ws1EnvUrl    = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TokenUrl     = "https://na.uemauth.workspaceone.com/connect/token"
-$ClientId     = "YOUR_CLIENT_ID"
-$ClientSecret = "YOUR_CLIENT_SECRET"
 $TenantCode   = "YOUR_TENANT_CODE"
 
 # Define where to log the wiped device serials
@@ -34,7 +31,7 @@ New-Item -Path (Split-Path $LogFilePath) -ItemType Directory -Force | Out-Null
 # FUNCTIONS
 # -------------------------------
 
-# Function: Retrieves a cached OAuth token if valid, or requests a new one
+# Function: Retrieves a cached OAuth token if valid
 function Get-WS1Token {
     if (Test-Path $TokenCacheFile) {
         $tokenAge = (Get-Date) - (Get-Item $TokenCacheFile).LastWriteTime
@@ -43,22 +40,8 @@ function Get-WS1Token {
             return $cachedToken.access_token
         }
     }
-
-    Write-Host "🔐 Requesting new Workspace ONE access token..."
-    $body = @{
-        grant_type    = 'client_credentials'
-        client_id     = $ClientId
-        client_secret = $ClientSecret
-    }
-    $response = Invoke-RestMethod -Method Post -Uri $TokenUrl -Body $body -ContentType "application/x-www-form-urlencoded"
-
-    if (-not $response.access_token) {
-        Write-Host "❌ Failed to obtain access token. Exiting."
-        exit 1
-    }
-
-    $response | ConvertTo-Json | Set-Content -Path $TokenCacheFile
-    return $response.access_token
+    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # Function: Prompts the admin to confirm an action with (y/n)
