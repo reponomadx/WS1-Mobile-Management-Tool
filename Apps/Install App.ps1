@@ -4,7 +4,7 @@
 # Description:
 #   This script queries Workspace ONE for all purchased apps, exports them to CSV,
 #   prompts the user for a device serial number, and installs the selected app to that device.
-#   It uses OAuth for authentication and supports error handling for common issues.
+#   It uses a cached OAuth token for authentication.
 # -----------------------------------------------------------------------------
 
 # --------------------------------
@@ -16,11 +16,8 @@ $OAuthDir = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
 $TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
 $TokenLifetimeSeconds = 3600  # Token cache duration
 
-# Workspace ONE API endpoints (replace with actual environment if deploying)
+# Workspace ONE API base URL and identifiers (replace with actual values)
 $Ws1EnvUrl     = "https://YOUR_OMNISSA_ENV.awmdm.com"
-$TokenUrl      = "https://na.uemauth.workspaceone.com/connect/token"
-$ClientId      = "YOUR_CLIENT_ID"
-$ClientSecret  = "YOUR_CLIENT_SECRET"
 $OrgGroupUUID  = "YOUR_ORGGROUP_UUID"
 $TenantCode    = "YOUR_TENANT_CODE"
 
@@ -28,7 +25,7 @@ $TenantCode    = "YOUR_TENANT_CODE"
 # FUNCTIONS
 # --------------------------------
 
-# Returns cached access token if still valid, otherwise fetches a new one
+# Returns cached access token if still valid
 function Get-Ws1Token {
     $now = Get-Date
     if (Test-Path $TokenCacheFile) {
@@ -38,15 +35,8 @@ function Get-Ws1Token {
         }
     }
 
-    Write-Host "Requesting new Workspace ONE access token..."
-    $response = Invoke-RestMethod -Method Post -Uri $TokenUrl -ContentType "application/x-www-form-urlencoded" -Body @{
-        grant_type    = "client_credentials"
-        client_id     = $ClientId
-        client_secret = $ClientSecret
-    }
-
-    $response | ConvertTo-Json | Set-Content -Path $TokenCacheFile
-    return $response.access_token
+    Write-Host "Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # --------------------------------
@@ -56,7 +46,7 @@ function Get-Ws1Token {
 # Get OAuth access token
 $accessToken = Get-Ws1Token
 
-Write-Host "`n📦 Retrieving all purchased apps..."
+Write-Host "`nRetrieving all purchased apps..."
 
 # Output file for apps
 $outputCsv = "\\HOST_SERVER\MobileManagementTool\Apps\All_Purchased.csv"
@@ -70,7 +60,7 @@ $purchasedApps = Invoke-RestMethod -Method Get -Uri "$Ws1EnvUrl/api/mam/apps/pur
 # Handle empty response
 if (-not $purchasedApps.Application) {
     echo ""
-    Write-Host "❌ No purchased apps returned by API."
+    Write-Host "No purchased apps returned by API."
     $purchasedApps | ConvertTo-Json -Depth 5 | Out-File "$OAuthDir\debug_apps.json"
     exit 1
 }
@@ -96,7 +86,7 @@ $serial = Read-Host "Enter the serial number of the device to install an app"
 
 # Validate serial input
 if (-not $serial) {
-    Write-Host "❌ No serial number provided. Exiting script..."
+    Write-Host "No serial number provided. Exiting script..."
     exit 1
 }
 
@@ -112,12 +102,12 @@ $mac      = $deviceInfo.MacAddress
 
 # Exit if device not found
 if (-not $deviceId) {
-    Write-Host "❌ Device not found for serial: $serial"
+    Write-Host "Device not found for serial: $serial"
     exit 1
 }
 
 # Display available apps
-Write-Host "`n📋 Available Purchased Apps:"
+Write-Host "`nAvailable Purchased Apps:"
 $apps = Import-Csv -Path $outputCsv
 for ($i = 0; $i -lt $apps.Count; $i++) {
     Write-Host "$($i + 1)) $($apps[$i].ApplicationName)"
@@ -128,7 +118,7 @@ $appSelection = Read-Host "Enter the number of the app to install"
 
 # Validate selection input
 if (-not $appSelection -or -not ($appSelection -match '^\d+$') -or [int]$appSelection -lt 1 -or [int]$appSelection -gt $apps.Count) {
-    Write-Host "❌ Invalid or no app selection. Exiting script..."
+    Write-Host "Invalid or no app selection. Exiting script..."
     exit 1
 }
 
@@ -138,12 +128,12 @@ $appId = $apps[$appIndex].Id
 $appName = $apps[$appIndex].ApplicationName
 
 echo ""
-Write-Host "🚀 Installing $appName on device $serial..."
+Write-Host "Installing $appName on device $serial..."
 
 # Try install request
 try {
     $installResponse = Invoke-RestMethod -Method Post -Uri "$Ws1EnvUrl/API/mam/apps/purchased/$appId/install" -Headers @{
-        Authorization    = "Basic YOUR_BASE64_ENCODED_CREDENTIALS"
+        Authorization    = "Bearer $accessToken"
         Accept           = "application/json;version=1"
         "aw-tenant-code" = $TenantCode
         "Content-Type"   = "application/json"
@@ -155,7 +145,7 @@ try {
     } | ConvertTo-Json -Depth 3)
 
     echo ""
-    Write-Host "✅ Install command issued for $appName"
+    Write-Host "Install command issued for $appName"
 }
 catch {
     # Handle install error (app likely not assigned)
@@ -168,9 +158,9 @@ catch {
         $activityId = if ($responseBody.activityId) { $responseBody.activityId } else { "N/A" }
 
         echo ""
-        Write-Host "`n❌ $appName is not assigned to the device."
+        Write-Host "`n$appName is not assigned to the device."
     }
     catch {
-        Write-Host "`n❌ $appName is not assigned to the device."
+        Write-Host "`n$appName is not assigned to the device."
     }
 }
