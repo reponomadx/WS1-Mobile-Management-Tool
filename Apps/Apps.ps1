@@ -15,11 +15,8 @@ $OAuthDir = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
 $TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
 $TokenLifetimeSeconds = 3600  # Token validity window in seconds
 
-# Workspace ONE environment and OAuth config (replace placeholders before deployment)
+# Workspace ONE environment (replace placeholder before deployment)
 $Ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TokenUrl = "https://na.uemauth.workspaceone.com/connect/token"
-$ClientId = "YOUR_CLIENT_ID"
-$ClientSecret = "YOUR_CLIENT_SECRET"
 
 # Output file location and initialization
 $OutputDir = "\\HOST_SERVER\MobileManagementTool\Apps"
@@ -38,7 +35,7 @@ if (-not (Test-Path $OutputDir)) {
 # TOKEN FUNCTION
 # --------------------------------
 
-# Fetch or cache Workspace ONE access token using client credentials
+# Load token from cache if valid
 function Get-WS1Token {
     if (Test-Path $TokenCacheFile) {
         $tokenAge = (Get-Date) - (Get-Item $TokenCacheFile).LastWriteTime
@@ -47,28 +44,8 @@ function Get-WS1Token {
         }
     }
 
-    Write-Host "🔐 Requesting new Workspace ONE access token..."
-    $body = @{
-        grant_type    = "client_credentials"
-        client_id     = $ClientId
-        client_secret = $ClientSecret
-    }
-
-    $response = Invoke-RestMethod -Uri $TokenUrl -Method POST -Body $body -ContentType "application/x-www-form-urlencoded"
-
-    if (-not $response.access_token) {
-        Write-Host "❌ Failed to obtain access token. Exiting."
-        exit 1
-    }
-
-    # Ensure token directory exists
-    $parentDir = Split-Path $TokenCacheFile
-    if (-not (Test-Path $parentDir)) {
-        New-Item -Path $parentDir -ItemType Directory | Out-Null
-    }
-
-    $response | ConvertTo-Json | Set-Content -Path $TokenCacheFile
-    return $response.access_token
+    Write-Host "Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # --------------------------------
@@ -83,7 +60,7 @@ function Get-AppInfo {
         [string]$serial
     )
 
-    Write-Host "`n📦 Installed Applications for Device: $deviceName ($serial)"
+    Write-Host "`nInstalled Applications for Device: $deviceName ($serial)"
     Write-Host "------------------------------------------"
 
     try {
@@ -110,7 +87,7 @@ function Get-AppInfo {
                 Add-Content -Path $CsvFile
         }
     } catch {
-        Write-Host "❌ Error retrieving apps for $deviceName ($serial)"
+        Write-Host "Error retrieving apps for $deviceName ($serial)"
         Write-Host $_.Exception.Message
     }
 }
@@ -135,7 +112,7 @@ if ($searchOption -eq "1") {
     $input -split "," | ForEach-Object {
         $id = $_.Trim()
         if ($id -notmatch '^[A-Za-z0-9]{10,12}$') {
-            Write-Host "❌ Invalid serial number: $id"
+            Write-Host "Invalid serial number: $id"
             exit 1
         }
         $identifiers += $id
@@ -147,7 +124,7 @@ elseif ($searchOption -eq "2") {
     $identifiers = $input -split "," | ForEach-Object { $_.Trim() }
 }
 else {
-    Write-Host "❌ Invalid option selected."
+    Write-Host "Invalid option selected."
     exit 1
 }
 
@@ -156,7 +133,7 @@ $identifiers | ForEach-Object { Write-Host "- $_" }
 
 # Get valid token before device queries
 $accessToken = Get-WS1Token
-Write-Host "`n📋 Retrieving device details from Workspace ONE..."
+Write-Host "`nRetrieving device details from Workspace ONE..."
 
 # Loop through each serial/user ID and collect app data
 foreach ($id in $identifiers) {
@@ -172,7 +149,7 @@ foreach ($id in $identifiers) {
             $serial = $response.SerialNumber
 
             if ([string]::IsNullOrEmpty($uuid) -or $uuid -eq "null") {
-                Write-Host "⚠️  Device UUID is missing or invalid for serial: $serial"
+                Write-Host "Device UUID is missing or invalid for serial: $serial"
                 continue
             }
 
@@ -185,7 +162,7 @@ foreach ($id in $identifiers) {
             }
 
             if (-not $response.Devices) {
-                Write-Host "❌ No devices found for user: $id"
+                Write-Host "No devices found for user: $id"
                 continue
             }
 
@@ -195,7 +172,7 @@ foreach ($id in $identifiers) {
                 $serial = $device.SerialNumber
 
                 if ([string]::IsNullOrEmpty($uuid) -or $uuid -eq "null") {
-                    Write-Host "⚠️  Skipping invalid device entry (no UUID)"
+                    Write-Host "Skipping invalid device entry (no UUID)"
                     continue
                 }
 
@@ -203,9 +180,9 @@ foreach ($id in $identifiers) {
             }
         }
     } catch {
-        Write-Host "❌ Error retrieving device info for: $id"
+        Write-Host "Error retrieving device info for: $id"
         Write-Host $_.Exception.Message
     }
 }
 
-Write-Host "`n✅ App data saved to: $CsvFile"
+Write-Host "`nApp data saved to: $CsvFile"
