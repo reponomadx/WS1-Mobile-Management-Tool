@@ -16,9 +16,6 @@ $TokenCacheFile = "\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cach
 $tokenLifetimeSeconds = 3600
 
 $ws1EnvUrl     = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$tokenUrl      = "https://na.uemauth.workspaceone.com/connect/token"
-$clientId      = "YOUR_CLIENT_ID"
-$clientSecret  = "YOUR_CLIENT_SECRET"
 
 New-Item -ItemType Directory -Force -Path $basePath | Out-Null
 
@@ -33,14 +30,8 @@ function Get-WS1Token {
         }
     }
 
-    Write-Host "🔐 Requesting new Workspace ONE access token..."
-    $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -ContentType "application/x-www-form-urlencoded" -Body @{
-        grant_type    = "client_credentials"
-        client_id     = $clientId
-        client_secret = $clientSecret
-    }
-    $response | ConvertTo-Json -Depth 10 | Out-File $TokenCacheFile
-    return $response.access_token
+    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
+    exit 1
 }
 
 # -------------------------------
