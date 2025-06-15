@@ -33,7 +33,7 @@ function Show-Menu {
     Write-Host "Logged in as: $env:USERNAME on $env:COMPUTERNAME" -ForegroundColor Gray
     echo ""
     Write-Host " --------------------------------------------" 
-    Write-Host "|  WS1 Mobile Management Tool v1.0.1         |" -ForegroundColor Cyan
+    Write-Host "|  WS1 Mobile Management Tool v1.2.0         |" -ForegroundColor Cyan
     Write-Host " --------------------------------------------" 
     Write-Host "|  1) Restart device(s)                      |"
     Write-Host "|  2) Device(s) Details/Information          |"
