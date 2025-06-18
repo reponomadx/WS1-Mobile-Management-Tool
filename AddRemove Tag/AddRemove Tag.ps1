@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: AddRemoveTag.ps1
+# Script Name: AddRemove Tag.ps1
 # Purpose: Add or remove a Workspace ONE tag from one or more devices by serial number
 # Description:
 #   This script prompts the user to choose whether to apply or remove a tag,
