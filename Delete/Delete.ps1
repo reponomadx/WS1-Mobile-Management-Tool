@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: DeleteDevices.ps1
+# Script Name: Delete.ps1
 # Purpose: Look up and optionally delete one or more devices in Workspace ONE by serial number
 # Description:
 #   This script accepts a list of device serial numbers, retrieves their details
