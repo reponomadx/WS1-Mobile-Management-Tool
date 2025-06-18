@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------
 # Script Name: Assign or Unassign DEP.ps1
-# Purpose: Assign or unassign DEP profiles in Workspace ONE using OAuth
+# Purpose: Assign or unassign ADE profiles in Workspace ONE using OAuth
 # Description:
-#   This script allows IT admins to assign or unassign DEP enrollment profiles 
+#   This script allows IT admins to assign or unassign ADE enrollment profiles 
 #   to one or more Apple devices in Workspace ONE. It uses OAuth and supports
 #   profile listing, profile lookup, and device serial-based targeting.
 #   The script is intended for internal use and supports both interactive and bulk processing.
@@ -65,7 +65,7 @@ function Get-DeviceIdFromSerial($serial) {
 }
 
 function Sync-DEPDevices {
-    Write-Host "🔄 Triggering DEP Sync for Org Group: $orgGroupUuid..."
+    Write-Host "🔄 Triggering ADE Sync for Org Group: $orgGroupUuid..."
     $url = "$ws1EnvUrl/mdm/dep/groups/$orgGroupUuid/devices?action=Sync"
     try {
         $response = Invoke-RestMethod -Uri $url -Method Put -Headers @{
@@ -76,15 +76,15 @@ function Sync-DEPDevices {
             "Content-Length" = "0"
         } -ErrorAction Stop
 
-        Write-Host "✅ DEP sync triggered successfully."
+        Write-Host "✅ ADE sync triggered successfully."
     } catch {
-        Write-Host "❌ Failed to trigger DEP sync: $($_.Exception.Message)"
+        Write-Host "❌ Failed to trigger ADE sync: $($_.Exception.Message)"
     }
 }
 
 function List-DEPProfiles {
     echo ""
-    Write-Host "📄 Fetching available DEP profiles..."
+    Write-Host "📄 Fetching available ADE profiles..."
     $url = "$ws1EnvUrl/mdm/dep/profiles/search?organizationgroupuuid=$orgGroupUuid"
     $response = Invoke-RestMethod -Uri $url -Headers @{
         "Authorization" = "Bearer $(Get-WS1Token)"
@@ -108,7 +108,7 @@ function List-DEPProfiles {
 function Assign-DEPProfile($serial, $profileUUID, $profileName) {
     $serialTrimmed = ($serial -replace '\s', '').Trim()
     echo ""
-    Write-Host "📦 Assigning DEP profile '$profileName' to device $serialTrimmed..."
+    Write-Host "📦 Assigning ADE profile '$profileName' to device $serialTrimmed..."
     $url = "$($ws1EnvUrl)/mdm/dep/profiles/$($profileUUID)/devices/$($serialTrimmed)?action=Assign"
     try {
         $response = Invoke-RestMethod -Uri $url -Method Put -Headers @{
@@ -120,10 +120,10 @@ function Assign-DEPProfile($serial, $profileUUID, $profileName) {
         } -ErrorAction Stop
 
         if ($response -and $response.errorCode) {
-            Write-Host "❌ Failed to assign DEP profile."
+            Write-Host "❌ Failed to assign ADE profile."
             $global:depFailure++
         } else {
-            Write-Host "✅ Successfully assigned DEP profile."
+            Write-Host "✅ Successfully assigned ADE profile."
             $global:depSuccess++
         }
     } catch {
@@ -135,7 +135,7 @@ function Assign-DEPProfile($serial, $profileUUID, $profileName) {
 function Unassign-DEPProfile($serial, $profileUUID) {
     $serialTrimmed = ($serial -replace '\s', '').Trim()
     echo ""
-    Write-Host "📦 Unassigning DEP profile from device $serialTrimmed..."
+    Write-Host "📦 Unassigning ADE profile from device $serialTrimmed..."
     $url = "$($ws1EnvUrl)/mdm/dep/profiles/$($profileUUID)/devices/$($serialTrimmed)?action=Unassign"
     try {
         $response = Invoke-RestMethod -Uri $url -Method Put -Headers @{
@@ -160,9 +160,9 @@ function Unassign-DEPProfile($serial, $profileUUID) {
 }
 
 Write-Host ""
-Write-Host "DEP Assign/Unassign"
-Write-Host "1. Assign DEP Profile"
-Write-Host "2. Unassign DEP Profile"
+Write-Host "ADE Assign/Unassign"
+Write-Host "1. Assign ADE Profile"
+Write-Host "2. Unassign ADE Profile"
 Write-Host "3. Sync"
 $action = Read-Host "Enter option [1-3]"
 Write-Host ""
@@ -175,14 +175,14 @@ switch ($action) {
         $profiles = List-DEPProfiles
         $profiles | Format-Table ProfileID, ProfileName -AutoSize
 
-        $profileId = Read-Host "Enter the DEP Profile ID to assign"
+        $profileId = Read-Host "Enter the ADE Profile ID to assign"
         $selectedProfile = $profiles | Where-Object { $_.ProfileID -eq $profileId }
         if (-not $selectedProfile) {
             Write-Host "❌ No matching DEP Profile found."
             break
         }
 
-        Write-Host "📘 Using DEP Profile: $($selectedProfile.ProfileName)"
+        Write-Host "📘 Using ADE Profile: $($selectedProfile.ProfileName)"
         $serials = (Read-Host "Enter one or more device serial numbers (comma-separated)").Split(',')
 
         foreach ($serial in $serials) {
@@ -201,7 +201,7 @@ switch ($action) {
             }
         }
 
-        Write-Host "\n✅ DEP Profile Assignment Summary"
+        Write-Host "\n✅ ADE Profile Assignment Summary"
         Write-Host "---------------------------------"
         Write-Host "Successfully Assigned : $depSuccess"
         Write-Host "Failed to Assign      : $depFailure"
@@ -228,7 +228,7 @@ switch ($action) {
             }
         }
 
-        Write-Host "✅ DEP Profile Unassignment Summary"
+        Write-Host "✅ ADE Profile Unassignment Summary"
         Write-Host "-----------------------------------"
         Write-Host "Successfully Unassigned : $depSuccess"
         Write-Host "Failed to Unassign      : $depFailure"
