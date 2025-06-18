@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: Get-DeviceProfiles.ps1
+# Script Name: Profiles.ps1
 # Purpose: Retrieve installed configuration profiles for Workspace ONE devices
 # Description:
 #   This script queries installed device profiles via the Workspace ONE API
