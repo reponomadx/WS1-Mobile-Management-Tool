@@ -35,7 +35,7 @@ Each script is standalone but callable from a centralized CLI menu:
 | `LostMode.ps1` | Enable or disable Lost Mode |
 | `Tag Edit.ps1` | Add or remove device tags |
 | `SmartGroup Lookup.ps1` | View Smart Group membership |
-| `Assign or Unassign DEP.ps1` | Assign/unassign DEP profiles |
+| `Assign or Unassign DEP.ps1` | Assign/unassign DEP profiles *(OAuth now supported)* |
 | `EventLog.ps1` | Retrieve 1000 recent device event logs |
 | `Delete Devices.ps1` | Remove devices from WS1 by serial or user |
 | `Device Details.ps1` | Lookup basic device info |
@@ -111,18 +111,18 @@ By default, scripts write to the user’s `Downloads` folder or shared folders l
 ## 🔒 Host-Based Trust Model
 
 This tool is designed to run only from **internal, IT-managed systems**.  
-All scripts reference trusted shares such as: \\HOST_SERVER\MobileManagementTool\
+All scripts reference trusted shares such as: `\\HOST_SERVER\MobileManagementTool\`  
 This prevents exfiltration or misuse on personal machines.
 
 ---
 
 ## 📢 Community & Version
 
-Latest version: **v1.2.0**  
+Latest version: **v1.2.1**  
 Source:  
 🔗 [https://github.com/reponomadx/WS1-Mobile-Management-Tool](https://github.com/reponomadx/WS1-Mobile-Management-Tool)
 
-Reddit feedback or issues welcome.
+Discussions feedback or issues welcome.
 
 ---
 
