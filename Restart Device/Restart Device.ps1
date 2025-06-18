@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: Restart-Device.ps1
+# Script Name: Restart Device.ps1
 # Purpose: Issue Workspace ONE soft reset (reboot) commands to one or more devices
 # Description:
 #   This script allows IT administrators to reboot Workspace ONE-managed devices
