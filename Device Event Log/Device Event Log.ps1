@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: DeviceEventLog.ps1
+# Script Name: Device Event Log.ps1
 # Purpose: Retrieve the 1,000 most recent Workspace ONE event log entries
 # Description:
 #   This script allows IT administrators to pull the latest device event logs
