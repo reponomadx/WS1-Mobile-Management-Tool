@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: QueryDeviceApps.ps1
+# Script Name: Apps.ps1
 # Purpose: Retrieve and export installed application info from Workspace ONE
 # Description:
 #   Queries devices by serial number or user ID using Workspace ONE APIs and 
