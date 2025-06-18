@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Script Name: ClearPasscode.ps1
+# Script Name: Clear Passcode.ps1
 # Purpose: Send Clear Passcode command to one or more devices by serial number
 # Description:
 #   This script uses a cached OAuth token to authenticate to Workspace ONE,
