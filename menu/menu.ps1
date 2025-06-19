@@ -6,39 +6,33 @@
 #   Logs all activity per session. Includes hostname validation and idle timeout.
 # -----------------------------------------------------------------------------
 
+
 # --------------------------------
 # HOSTNAME VALIDATION
 # --------------------------------
-
-# Allow list of machines authorized to run this script
 $validHosts = @('HOST1', 'HOST2', 'HOST3')
 $currentHost = $env:COMPUTERNAME
 
 Start-Sleep -Seconds 2
 
-# Block execution if script is run on an unauthorized host
 if ($validHosts -notcontains $currentHost) {
     Write-Host "❌ This script can only be run on: HOST1, HOST2, HOST3" -ForegroundColor Red
     Stop-Process -Id $PID
 }
 
-# --------------------------------
-# MENU DISPLAY FUNCTION
-# --------------------------------
-
 function Show-Menu {
     Clear-Host
     Write-Host "!!! Authorized Use Only !!!" -ForegroundColor Yellow
     Write-Host "This tool is for ACME IT use only. Unauthorized use or modification is strictly prohibited." -ForegroundColor Green
-    Write-Host "Logged in as: $env:USERNAME on $env:COMPUTERNAME" -ForegroundColor Gray
+    Write-Host "PROD Logged in as: $env:USERNAME on $env:COMPUTERNAME" -ForegroundColor Gray
     echo ""
     Write-Host " --------------------------------------------" 
-    Write-Host "|  WS1 Mobile Management Tool v1.2.0         |" -ForegroundColor Cyan
+    Write-Host "|  ACME Mobile Management Tool               |" -ForegroundColor Cyan
     Write-Host " --------------------------------------------" 
     Write-Host "|  1) Restart device(s)                      |"
     Write-Host "|  2) Device(s) Details/Information          |"
     Write-Host "|  3) Add/Remove Tag                         |"
-    Write-Host "|  4) ADE Assign/Unassign                    |"
+    Write-Host "|  4) DEP Assign/Unassign                    |"
     Write-Host "|  5) Clear Passcode                         |"
     Write-Host "|  6) Device Wipe                            |"
     Write-Host "|  7) Apps Query                             |"
@@ -51,10 +45,6 @@ function Show-Menu {
     Write-Host " --------------------------------------------"
 }
 
-# --------------------------------
-# SCRIPT RUNNER FUNCTION
-# --------------------------------
-
 function Run-Script($path) {
     if (Test-Path $path) {
         & $path
@@ -66,19 +56,16 @@ function Run-Script($path) {
 # --------------------------------
 # SESSION LOG SETUP
 # --------------------------------
-
-# Directory to store per-user session logs
 $logFolder = "\\HOST_SERVER\MobileManagementTool\UserLogs"
 $sessionTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $sessionUser = $env:USERNAME
-$sessionLogPath = "$logFolder\PREPROD_Session_${sessionUser}_$sessionTimestamp.log"
+$sessionLogPath = "$logFolder\PROD_Session_${sessionUser}_$sessionTimestamp.log"
 
-# Clean up old logs (older than 90 days)
+# Cleanup old session logs (older than 90 days)
 Get-ChildItem -Path $logFolder -Filter "Session_*.log" | Where-Object {
     $_.LastWriteTime -lt (Get-Date).AddDays(-90)
 } | Remove-Item -Force
 
-# Function to log menu actions with timestamp
 function Log-Action($message) {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $entry = "$timestamp | User: $env:USERNAME | Host: $env:COMPUTERNAME | Action: $message"
@@ -89,9 +76,8 @@ function Log-Action($message) {
 Log-Action "Session started"
 
 # --------------------------------
-# NON-BLOCKING USER INPUT WITH TIMEOUT
+# NON-BLOCKING INPUT WITH TIMEOUT
 # --------------------------------
-
 function Get-UserInputWithTimeout {
     param (
         [int]$timeoutSeconds = 120
@@ -127,20 +113,26 @@ function Get-UserInputWithTimeout {
         Start-Sleep -Milliseconds 200
     }
 
-    # If timeout reached with no input
     Write-Host "`n⏳ Session timed out due to inactivity. Exiting..." -ForegroundColor Yellow
-    Log-Action "Session timeout - script exited"
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $entry = "$timestamp | User: $env:USERNAME | Host: $env:COMPUTERNAME | Action: Session timeout - script exited"
+    Add-Content -Path $sessionLogPath -Value $entry
     exit
 }
 
 # --------------------------------
-# MAIN MENU LOOP
+# MAIN LOOP WITH VALIDATION
 # --------------------------------
-
 while ($true) {
     Show-Menu
 
     $choice = Get-UserInputWithTimeout
+
+    if ($null -eq $choice -or $choice -notmatch '^\d+$' -or [int]$choice -lt 0 -or [int]$choice -gt 12) {
+        Write-Host "`n❌ Invalid input. Please enter a number between 0 and 12." -ForegroundColor Red
+        Start-Sleep -Seconds 2
+        continue
+    }
 
     if ($choice -eq '0') {
         Log-Action "Exited menu"
@@ -148,24 +140,19 @@ while ($true) {
         break
     }
 
-    # Handle menu selections and map to relevant sub-scripts
     switch ($choice) {
         '1'  { Log-Action "Restart device(s)"; Run-Script "\\HOST_SERVER\MobileManagementTool\Restart Device\Restart Device.ps1" }
         '2'  { Log-Action "Device(s) Details/Information"; Run-Script "\\HOST_SERVER\MobileManagementTool\Device Details\Device Details.ps1" }
         '3'  { Log-Action "Add/Remove Tag"; Run-Script "\\HOST_SERVER\MobileManagementTool\AddRemove Tag\AddRemove Tag.ps1" }
-        '4'  { Log-Action "ADE Assign/Unassign"; Run-Script "\\HOST_SERVER\MobileManagementTool\DEP\Assign or Unassign DEP.ps1" }
+        '4'  { Log-Action "DEP Assign/Unassign"; Run-Script "\\HOST_SERVER\MobileManagementTool\DEP\Assign or Unassign DEP.ps1" }
         '5'  { Log-Action "Clear Passcode"; Run-Script "\\HOST_SERVER\MobileManagementTool\Clear Passcode\Clear Passcode.ps1" }
         '6'  { Log-Action "Device Wipe"; Run-Script "\\HOST_SERVER\MobileManagementTool\Device Wipe\Device Wipe.ps1" }
         '7'  { Log-Action "Apps Query"; Run-Script "\\HOST_SERVER\MobileManagementTool\Apps\Apps.ps1" }
-        '8'  { Log-Action "App Install"; Run-Script "\\HOST_SERVER\MobileManagementTool\Install App.ps1" }
+        '8'  { Log-Action "App Install"; Run-Script "\\HOST_SERVER\MobileManagementTool\Apps\Install App.ps1" }
         '9'  { Log-Action "Profiles Assigned"; Run-Script "\\HOST_SERVER\MobileManagementTool\Profiles\Profiles.ps1" }
         '10' { Log-Action "Device Event Log (1000 Entries)"; Run-Script "\\HOST_SERVER\MobileManagementTool\Device Event Log\Device Event Log.ps1" }
         '11' { Log-Action "Delete Device(s)"; Run-Script "\\HOST_SERVER\MobileManagementTool\Delete\Delete.ps1" }
         '12' { Log-Action "Enable/Disable Lost Mode"; Run-Script "\\HOST_SERVER\MobileManagementTool\Lost Mode\LostMode.ps1" }
-        default {
-            Write-Host "`n❌ Invalid option. Please try again." -ForegroundColor Red
-            Start-Sleep -Seconds 2
-        }
     }
 
     Write-Host "`nPress Enter to return to the main menu..."
