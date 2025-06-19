@@ -4,6 +4,22 @@ All notable updates to the WS1 Mobile Management Tool are documented below.
 
 ---
 
+## [v1.2.3] - 2025-06-18
+### 🧹 Final Patch for v1.2.x Series
+This version finalizes v1.2.x with sanitization, script alignment, and documentation polish.
+
+### 🛠 Fixes
+- Sanitized `menu.ps1` for public release (generic hostnames, session logging)
+- Ensured all included scripts reflect safe paths and removed all internal identifiers
+- Fixed script label alignment in CLI launcher menu
+
+### ✏️ Improvements
+- Added version badge to `README.md`
+- Updated README sections to reflect real folder/script layout
+- Clarified deployment trust model, logging locations, and token usage in documentation
+
+---
+
 ## [v1.2.2] - 2025-06-18
 ### 🛠 Fixes
 - Fixed version output in `Apps.ps1` — now pulls from `installed_version` field correctly
