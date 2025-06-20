@@ -1,95 +1,72 @@
-# -----------------------------------------------------------------------------
-# Script Name: AddRemove Tag.ps1
-# Purpose: Add or remove a Workspace ONE tag from one or more devices by serial number
-# Description:
-#   This script prompts the user to choose whether to apply or remove a tag,
-#   allows selection from a list of tags defined in a CSV file, and processes
-#   one or more serial numbers. It authenticates to the Workspace ONE API
-#   using a cached OAuth token and triggers a DeviceInformation command to sync.
-#   A summary of the results is displayed at the end.
-# -----------------------------------------------------------------------------
+<#
+.SYNOPSIS
+Adds or removes Workspace ONE tags from devices using serial numbers.
 
-# --------------------------------
+.DESCRIPTION
+This script authenticates using a cached OAuth token and allows IT admins to apply or remove tags 
+from one or more devices by serial number. It also sends a DeviceInformation command after each change.
+Intended for internal use only from a trusted environment.
+
+.VERSION
+v1.3.0
+#>
+
+# -------------------------------
 # CONFIGURATION
-# --------------------------------
+# -------------------------------
+$TokenCacheFile = "C:\Path\To\Shared\Token\ws1_token_cache.json"
+$WS1EnvUrl = "https://yourenv.awmdm.com/API"
+$TenantCode = "YOUR_TENANT_CODE"
+$CsvFile = "$HOME\Downloads\ws1_tags.csv"
 
-# Directory where the OAuth token cache is stored
-$OAuthDir = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
-
-# Path to cached access token file
-$TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
-
-# Token validity duration in seconds
-$TokenLifetimeSeconds = 3600
-
-# Base Workspace ONE API URL (update with actual environment hostname)
-$WS1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-
-# Workspace ONE tenant code (replace placeholder with actual value)
-$TenantCode = "YOUR OMNISSA CLIENT CODE"
-
-# Path to CSV file containing tag IDs and names
-$CsvFile = "\\HOST_SERVER\MobileManagementTool\AddRemove Tag\tags.csv"
-
-# --------------------------------
+# -------------------------------
 # FUNCTIONS
-# --------------------------------
+# -------------------------------
 
-# Retrieves and caches a Workspace ONE API token (if not already valid)
+# Retrieves a cached OAuth token
 function Get-WS1Token {
-    $now = Get-Date
-    if (Test-Path $TokenCacheFile) {
-        $lastModified = (Get-Item $TokenCacheFile).LastWriteTime
-        if ((New-TimeSpan -Start $lastModified -End $now).TotalSeconds -lt $TokenLifetimeSeconds) {
-            # Load token from cache if still valid
-            $global:AccessToken = (Get-Content $TokenCacheFile | ConvertFrom-Json).access_token
-            return
-        }
+    if (-Not (Test-Path $TokenCacheFile)) {
+        Write-Host "❌ Token cache not found at $TokenCacheFile" -ForegroundColor Red
+        exit 1
     }
 
-    Write-Host "Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
-    exit 1
+    try {
+        $tokenData = Get-Content $TokenCacheFile | ConvertFrom-Json
+        return $tokenData.access_token
+    } catch {
+        Write-Host "❌ Failed to parse token cache." -ForegroundColor Red
+        Write-Host $_.Exception.Message
+        exit 1
+    }
 }
 
-# Sends an API request to apply a tag to a device by its ID
+# Applies the selected tag to the device
 function Apply-TagToDevice($deviceId, $tagId, $serial) {
-    echo ""
-    Write-Host "Applying tag $tagId to device $serial..."
-
+    Write-Host "`n🏷️  Applying tag $tagId to device $serial..."
     $body = @{ BulkValues = @{ Value = @($deviceId) } } | ConvertTo-Json -Depth 3
-
-    $response = Invoke-RestMethod -Uri "$WS1EnvUrl/mdm/tags/$tagId/adddevices" -Method Post -Headers @{
-        Authorization   = "Bearer $AccessToken"
-        "aw-tenant-code"= $TenantCode
-        Accept          = "application/json;version=1"
-        "Content-Type"  = "application/json"
+    return Invoke-RestMethod -Uri "$WS1EnvUrl/mdm/tags/$tagId/adddevices" -Method Post -Headers @{
+        Authorization    = "Bearer $AccessToken"
+        "aw-tenant-code" = $TenantCode
+        Accept           = "application/json;version=1"
+        "Content-Type"   = "application/json"
     } -Body $body
-
-    return $response
 }
 
-# Sends an API request to remove a tag from a device by its ID
+# Removes the selected tag from the device
 function Remove-TagFromDevice($deviceId, $tagId, $serial) {
-    echo ""
-    Write-Host "Removing tag $tagId from device $serial..."
-
+    Write-Host "`n🚫 Removing tag $tagId from device $serial..."
     $body = @{ BulkValues = @{ Value = @($deviceId) } } | ConvertTo-Json -Depth 3
-
-    $response = Invoke-RestMethod -Uri "$WS1EnvUrl/mdm/tags/$tagId/removedevices" -Method Post -Headers @{
-        Authorization   = "Bearer $AccessToken"
-        "aw-tenant-code"= $TenantCode
-        Accept          = "application/json;version=1"
-        "Content-Type"  = "application/json"
+    return Invoke-RestMethod -Uri "$WS1EnvUrl/mdm/tags/$tagId/removedevices" -Method Post -Headers @{
+        Authorization    = "Bearer $AccessToken"
+        "aw-tenant-code" = $TenantCode
+        Accept           = "application/json;version=1"
+        "Content-Type"   = "application/json"
     } -Body $body
-
-    return $response
 }
 
-# Sends a DeviceInformation command to force a sync after tag changes
+# Sends a DeviceInformation command after tag change
 function Send-DeviceInformationCommand($deviceId, $serial) {
-    echo ""
-    Write-Host "Requesting Device Information for $serial..."
-
+    Write-Host "`n📡 Requesting Device Information for $serial..."
     $response = Invoke-RestMethod -Method Post -Uri "$WS1EnvUrl/mdm/devices/$deviceId/commands?command=DeviceInformation" -Headers @{
         Authorization   = "Bearer $AccessToken"
         Accept          = "application/json"
@@ -97,70 +74,55 @@ function Send-DeviceInformationCommand($deviceId, $serial) {
     }
 
     if ($response.errorCode -eq 0 -or !$response.errorCode) {
-        Write-Host "Command Sent Successfully"
+        Write-Host "✅ Command Sent Successfully"
     } else {
-        Write-Host "Command Failed"
+        Write-Host "❌ Command Failed"
         Write-Host "Error Code : $($response.errorCode)"
         Write-Host "Message    : $($response.message)"
-
-        # Log errors for auditing and troubleshooting
-        Add-Content -Path "$OAuthDir\device_command_errors.log" -Value "[$(Get-Date)] Device ID: $deviceId - Error $($response.errorCode): $($response.message)"
-        Write-Host "Logged error"
     }
 }
 
-# --------------------------------
-# MAIN LOGIC
-# --------------------------------
+# -------------------------------
+# MAIN SCRIPT
+# -------------------------------
 
-# Authenticate and obtain Workspace ONE token
-Get-WS1Token
+$AccessToken = Get-WS1Token
 
-echo ""
-Write-Host "Add/Remove Tag"
-
-# Prompt user for action mode (add/remove)
+Write-Host "`n📘 Add/Remove Tag Utility" -ForegroundColor Cyan
 $tagMode = Read-Host "Would you like to (a)dd or (r)emove a tag? [a/r]"
 if ($tagMode -ne 'a' -and $tagMode -ne 'r') {
-    Write-Host "Invalid mode selected. Exiting."
+    Write-Host "❌ Invalid mode selected. Exiting."
     exit 1
 }
 
-# Load available tags from CSV file
+# Load available tags from CSV
 $tags = Import-Csv $CsvFile
 for ($i = 0; $i -lt $tags.Count; $i++) {
     Write-Host "$($i+1)) ID: $($tags[$i].Id) - $($tags[$i].TagName)"
 }
 
-# Prompt user to select a tag number from the list
+# Prompt user to select a tag
 $choice = Read-Host "Select a tag number"
 $tagId = $tags[$choice - 1].Id
 
-echo ""
-
-# Prompt for one or more serial numbers, comma-separated
-$serialInput = Read-Host "Enter one or more device serial numbers (comma-separated)"
-if ([string]::IsNullOrWhiteSpace($serialInput) -or $serialInput -match '^[,\s]*$') {
-    Write-Host "No valid serial number(s) provided. Aborting."
+# Prompt for device serials
+$serialInput = Read-Host "Enter one or more serial numbers (comma-separated)"
+if ([string]::IsNullOrWhiteSpace($serialInput)) {
+    Write-Host "❌ No valid serial number(s) provided. Aborting."
     exit 1
 }
-
-# Sanitize and split serials into an array
-$serials = $serialInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+$serials = $serialInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
 
 if ($serials.Count -eq 0) {
-    Write-Host "All serials were empty after trimming. Aborting."
+    Write-Host "❌ All serials were empty after trimming. Aborting."
     exit 1
 }
 
-# Initialize counters for reporting
+# Counters for summary
 $TagTotal = 0; $TagAccepted = 0; $TagFailed = 0; $TagFaults = 0
 
-# Loop over each serial number and process tag operation
 foreach ($serial in $serials) {
-    Write-Host "`nLooking up Device ID for serial: $serial..."
-
-    # Retrieve device ID based on serial number
+    Write-Host "`n🔍 Looking up Device ID for serial: $serial..."
     $deviceData = Invoke-RestMethod -Uri "$WS1EnvUrl/mdm/devices?searchby=Serialnumber&id=$serial" -Headers @{
         Authorization   = "Bearer $AccessToken"
         Accept          = "application/json"
@@ -169,38 +131,31 @@ foreach ($serial in $serials) {
 
     $deviceId = $deviceData.Id.Value
     if (-not $deviceId) {
-        Write-Host "Failed to retrieve device ID for serial: $serial"
+        Write-Host "❌ Could not resolve device ID for: $serial"
         continue
     }
 
-    Write-Host "Device ID resolved: $deviceId"
+    Write-Host "✅ Device ID: $deviceId"
 
-    # Apply or remove the tag based on user choice
-    if ($tagMode -eq 'a') {
-        $result = Apply-TagToDevice $deviceId $tagId $serial
+    # Apply or remove the tag
+    $result = if ($tagMode -eq 'a') {
+        Apply-TagToDevice $deviceId $tagId $serial
     } else {
-        $result = Remove-TagFromDevice $deviceId $tagId $serial
+        Remove-TagFromDevice $deviceId $tagId $serial
     }
 
-    # Aggregate results for reporting
     $TagTotal += $result.TotalItems
     $TagAccepted += $result.AcceptedItems
     $TagFailed += $result.FailedItems
-    $TagFaults += $result.Faults.Fault.Count
-
-    # Request device info to trigger sync
+    $TagFaults += ($result.Faults.Fault.Count -as [int])
+    
     Send-DeviceInformationCommand $deviceId $serial
 }
 
-# Display final summary report
-Write-Host "`nTag Operation Summary"
+# Final summary
+Write-Host "`n✅ Tag Operation Summary"
 Write-Host "--------------------------"
 Write-Host "Total Devices Processed : $TagTotal"
-if ($tagMode -eq 'a') {
-    Write-Host "Successfully Tagged    : $TagAccepted"
-    Write-Host "Failed to Tag          : $TagFailed"
-} else {
-    Write-Host "Successfully Untagged  : $TagAccepted"
-    Write-Host "Failed to Untag        : $TagFailed"
-}
-Write-Host "Faults                  : $(if ($TagFaults -eq 0) {'None'} else { "$TagFaults faults" })"
+Write-Host "Successfully Updated     : $TagAccepted"
+Write-Host "❌ Failed                : $TagFailed"
+Write-Host "⚠️ Faults                : $(if ($TagFaults -eq 0) {'None'} else { "$TagFaults faults" })"
