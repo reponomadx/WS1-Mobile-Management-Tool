@@ -11,9 +11,9 @@ It is intended for bulk or individual VPP app deployments.
 v1.3.0
 #>
 
-# --------------------------------
+# -------------------------------
 # CONFIGURATION
-# --------------------------------
+# -------------------------------
 $TokenCacheFile = "\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cache.json"
 $Ws1EnvUrl      = "https://YOUR_OMNISSA_ENV.awmdm.com"
 $OrgGroupUUID   = "YOUR_ORG_GROUP_UUID"
@@ -39,9 +39,9 @@ function Get-WS1Token {
     }
 }
 
-# --------------------------------
+# -------------------------------
 # MAIN
-# --------------------------------
+# -------------------------------
 $accessToken = Get-Ws1Token
 Write-Host "`n📦 Retrieving all purchased apps..."
 $outputCsv = "$HOME\Downloads\All_Purchased.csv"
@@ -65,12 +65,13 @@ $serialInput = Read-Host "Enter one or more serial numbers (comma-separated)"
 $serials = $serialInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
 $appId = Read-Host "Enter App ID to install (from CSV)"
+
 foreach ($serial in $serials) {
     Write-Host "`n🔍 Looking up Device ID for serial: $serial..."
     $deviceData = Invoke-RestMethod -Uri "$Ws1EnvUrl/api/mdm/devices?searchby=Serialnumber&id=$serial" -Headers @{
-        Authorization   = "Bearer $accessToken"
-        Accept          = "application/json"
-        "aw-tenant-code"= $TenantCode
+        Authorization    = "Bearer $accessToken"
+        Accept           = "application/json"
+        "aw-tenant-code" = $TenantCode
     }
 
     $deviceId = $deviceData.Id.Value
@@ -81,9 +82,9 @@ foreach ($serial in $serials) {
 
     Write-Host "📲 Installing app on $serial..."
     $response = Invoke-RestMethod -Uri "$Ws1EnvUrl/api/mam/apps/purchased/$appId/devices/$deviceId/install" -Method Post -Headers @{
-        Authorization   = "Bearer $accessToken"
-        Accept          = "application/json"
-        "aw-tenant-code"= $TenantCode
+        Authorization    = "Bearer $accessToken"
+        Accept           = "application/json"
+        "aw-tenant-code" = $TenantCode
     }
 
     if ($response.message -eq $null) {
