@@ -4,113 +4,109 @@ All notable updates to the WS1 Mobile Management Tool are documented below.
 
 ---
 
+## [v1.3.0] - 2025-06-20
+### 🎉 Major Feature Release
+This is the largest and most refined version to date, focused on code quality, documentation, and centralized security.
+
+### 🔐 Security & Structure
+- All scripts now use centralized **OAuth token caching**
+- Removed all environment-specific paths, tenant codes, and credentials
+
+### 🖊️ Comments & Headers
+- Added standardized headers to every script:
+  - `.SYNOPSIS`, `.DESCRIPTION`, `.VERSION`
+- Inline comments explain function purpose, input logic, API interaction
+- Cyan-colored script titles added for improved readability
+
+### ❌ Removed
+- Deprecated Basic Auth logic
+- Eliminated any need for write access by general users
+
+### ✅ New or Updated Scripts
+- `Apps.ps1` – List apps assigned to device
+- `Install Purchased App.ps1` – Deploy VPP apps
+- `Clear Passcode.ps1` – Clears passcode on locked iOS device
+- `Update iOS.ps1` – Triggers OS update on compatible iOS devices
+
+### 📆 Graceful Execution
+- All scripts now check for required input and exit cleanly if not provided
+- No more unhandled prompts or crashes on empty input
+
+### 🔧 General Improvements
+- Unified script formatting, spacing, indentation, and output style
+- CSVs, logs, and error handling consistent across all tools
+- Better compatibility with future script expansion
+
+---
+
 ## [v1.2.3] - 2025-06-18
 ### 🧹 Final Patch for v1.2.x Series
-This version finalizes v1.2.x with sanitization, script alignment, and documentation polish.
+Finalized v1.2.x with sanitization, alignment, and polish.
 
 ### 🛠 Fixes
-- Sanitized `menu.ps1` for public release (generic hostnames, session logging)
-- Ensured all included scripts reflect safe paths and removed all internal identifiers
-- Fixed script label alignment in CLI launcher menu
+- Sanitized `menu.ps1` for public release
+- Removed all internal identifiers
+- Fixed script label alignment in CLI menu
 
 ### ✏️ Improvements
-- Added version badge to `README.md`
-- Updated README sections to reflect real folder/script layout
-- Clarified deployment trust model, logging locations, and token usage in documentation
+- README updated with version badges
+- Clarified documentation sections and output paths
 
 ---
 
 ## [v1.2.2] - 2025-06-18
 ### 🛠 Fixes
-- Fixed version output in `Apps.ps1` — now pulls from `installed_version` field correctly
-- Fixed install failure messaging in `Install App.ps1` — now consistently shows "❌ [AppName] is not assigned to the device."
+- `Apps.ps1` correctly pulls `installed_version`
+- Improved app install error messaging
 
 ### ✏️ Improvements
-- Updated all script headers to reflect their actual filenames for improved clarity and maintainability
+- All script headers renamed to match filenames
 
 ---
 
 ## [v1.2.1] - 2025-06-18
 ### ✅ Changes
-- Refactored `Assign or Unassign DEP.ps1` to support centralized OAuth token caching
-- Removed embedded Client ID and Secret from the script
-- Updated token retrieval logic for reliability and fallback safety
-- Replaced hardcoded unassign UUID with a placeholder
-- Improved logging structure and messaging for profile assign/unassign actions
+- OAuth cache support added to DEP assignment
+- Client credentials removed from codebase
+- Added logging for profile actions
 
 ---
 
-## [v1.2.0] - 2025-06-15  
+## [v1.2.0] - 2025-06-15
 ### 🔐 Security & OAuth Overhaul
-- Removed Client ID and Secret from all scripts
-- All scripts now pull token from a **shared cached file**
-- Scripts no longer require local write access to generate tokens
-- Introduced **hourly OAuth token refresh via Task Scheduler**
+- Centralized token cache
+- Removed embedded secrets
+- Scheduled task support introduced
 
 ### ✅ Updated Scripts
-Refactored for centralized token usage:
-- `AddRemove Tag.ps1`
-- `Apps.ps1`
-- `Install App.ps1`
-- `Clear Passcode.ps1`
-- `Delete.ps1`
-- `Device Details.ps1`
-- `Device Event Log.ps1`
-- `Device Wipe.ps1`
-- `LostMode.ps1`
-- `Profiles.ps1`
-- `Restart Device.ps1`
+- Major refactor across all active scripts
 
 ### 🛠 Improvements
-- Token caching fallback logic added
-- Scripts now fail gracefully if no token is found
-- Preserved CSV and log behavior from previous versions
-- Fully backwards-compatible with WS1 API v1+v2
+- Graceful token fallback logic
+- Output preservation and compatibility
 
 ---
 
 ## [v1.1.0] - 2025-06-15
-### 🚀 OAuth Token Auto-Renewal Support
-- Added `WS1 OAuth Token.xml` Task Scheduler config (runs hourly)
-- Added `OauthRenew.ps1` and wrapper batch file for token renewal
-- Optional sample log output (`refresh.log`) included
-
-### ✅ How It Works
-- A fresh token is always present
-- Designed to work unattended with no user input
+### 🚀 OAuth Auto-Renewal Support
+- Token refresh runs hourly via Task Scheduler
 
 ---
 
 ## [v1.0.1] - 2025-06-11
 ### 🛠 Token URL & Terminology Update
-- Updated token URL to new Omnissa endpoint:  
-  `https://na.uemauth.workspaceone.com/connect/token`
-- Replaced all user-facing references of "DEP" with **ADE (Automated Device Enrollment)** to align with Apple terminology
+- Updated to `na.uemauth.workspaceone.com`
+- "DEP" renamed to ADE in UI
 
 ---
 
 ## [v1.0.0] - 2025-06-09
-### 🎉 Initial Release – Workspace ONE Admin Toolkit
-A suite of PowerShell scripts to automate admin workflows in Omnissa (Workspace ONE) environments.
+### 🎉 Initial Release
+PowerShell-based admin toolkit for Workspace ONE UEM
 
-### 🚀 Included Scripts
-- `Device Details.ps1` – Lookup device info, Smart Groups, tags
-- `Device Wipe.ps1` – Secure wipe with logging
-- `Device Event Log.ps1` – Fetch latest 1,000 event logs
-- `LostMode.ps1` – Enable/disable Lost Mode with message
-- `Restart Device.ps1` – Soft reboot by serial (bulk capable)
-- `Assign or Unassign DEP.ps1` – Assign/unassign DEP profiles (Basic Auth)
-- `Profiles.ps1` – Export installed profiles as CSV
-- `AddRemove Tag.ps1` - Add or Remove tags
-- and more...
+### 🔒 Auth
+- OAuth token logic
+- Basic Auth support
 
-### 🔒 Authentication
-- OAuth token caching with fallback
-- Secure credential placeholders
-- Configurable environment structure
-
-### 📁 Output & Logging
-- All scripts write to local `Downloads` folder or a share path
-- Designed for clean audit trails and human-readable output
-
----
+### 📂 Output
+- Audit-friendly CSVs and logs
