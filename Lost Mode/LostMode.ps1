@@ -1,52 +1,51 @@
-# -----------------------------------------------------------------------------
-# Script Name: LostMode.ps1
-# Purpose: Enable or disable Lost Mode for Workspace ONE devices
-# Description:
-#   This script allows IT administrators to enable or disable Lost Mode on 
-#   enrolled devices in Workspace ONE by serial number. Device details are 
-#   displayed before prompting the admin for action. Lost Mode settings can 
-#   include a custom message and contact number.
-# -----------------------------------------------------------------------------
+<#
+.SYNOPSIS
+Enable or disable Lost Mode on Workspace ONE managed devices by serial number.
+
+.DESCRIPTION
+This script authenticates using a shared OAuth token and allows IT administrators
+to remotely enable or disable Lost Mode on devices via serial number lookup. The
+script validates input and uses Omnissa API calls to manage device status.
+
+.VERSION
+v1.3.0
+#>
 
 # -------------------------------
 # CONFIGURATION
 # -------------------------------
-# Path where OAuth token will be cached
 $oauthDir = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
 $tokenCacheFile = "$oauthDir\ws1_token_cache.json"
-$tokenLifetimeSeconds = 3600
-
-# Workspace ONE environment details
-$ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$lostModeApiBase = "https://YOUR_OMNISSA_ENV.awmdm.com/api/mdm/devices"
+$ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/api"
 
 # -------------------------------
-# FUNCTION: Get-WS1Token
-# Retrieves a valid OAuth token, either from cache or via API
+# Get OAuth Token from Cache
 # -------------------------------
 function Get-WS1Token {
-    if (Test-Path $tokenCacheFile) {
-        $age = (Get-Date) - (Get-Item $tokenCacheFile).LastWriteTime
-        if ($age.TotalSeconds -lt $tokenLifetimeSeconds) {
-            return (Get-Content $tokenCacheFile | ConvertFrom-Json).access_token
-        }
+    if (-Not (Test-Path $tokenCacheFile)) {
+        Write-Host "❌ Token cache not found at $tokenCacheFile" -ForegroundColor Red
+        exit 1
     }
 
-    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
-    exit 1
+    try {
+        $tokenData = Get-Content $tokenCacheFile | ConvertFrom-Json
+        return $tokenData.access_token
+    }
+    catch {
+        Write-Host "❌ Failed to parse token cache." -ForegroundColor Red
+        Write-Host $_.Exception.Message
+        exit 1
+    }
 }
 
 # -------------------------------
 # MAIN
 # -------------------------------
 echo ""
-Write-Host "Lost Mode"
-
-# Prompt for device serial numbers
+Write-Host "📍 Lost Mode" -ForegroundColor Cyan
 $input = Read-Host "Enter one or more 10 or 12-character serial numbers (comma-separated)"
-$serials = $input -replace '\\s' -split ','
+$serials = $input -replace '\s' -split ','
 
-# Validate input
 foreach ($serial in $serials) {
     if ($serial.Length -ne 10 -and $serial.Length -ne 12) {
         Write-Host "❌ Invalid serial number: $serial (must be 10 or 12 characters)"
@@ -54,96 +53,52 @@ foreach ($serial in $serials) {
     }
 }
 
-# Echo back serials
-Write-Host "`nYou entered:"
+Write-Host "`n📜 You entered:"
 $serials | ForEach-Object { Write-Host "- $_" }
 Write-Host ""
 
-# Get access token
 $accessToken = Get-WS1Token
 
-# Process each device
+$action = Read-Host "Would you like to (e)nable or (d)isable Lost Mode? [e/d]"
+if ($action -ne 'e' -and $action -ne 'd') {
+    Write-Host "❌ Invalid option selected."
+    exit 1
+}
+
 foreach ($serial in $serials) {
-    Write-Host "📋 Getting device details for $serial..."
-    Write-Host ""
+    Write-Host "`n🔍 Looking up device ID for: $serial..."
+    $deviceResponse = Invoke-RestMethod -Uri "$ws1EnvUrl/mdm/devices?searchby=Serialnumber&id=$serial" -Headers @{
+        Authorization = "Bearer $accessToken"
+        Accept        = "application/json"
+    }
 
-    # Query for device ID using serial number
-    $searchResponse = Invoke-RestMethod -Uri "$ws1EnvUrl/mdm/devices?searchby=Serialnumber&id=$serial" -Headers @{ Authorization = "Bearer $accessToken"; Accept = "application/json" }
-
-    if (-not $searchResponse.Id.Value) {
-        Write-Host "⚠️  No device found for $serial" -ForegroundColor Yellow
+    $deviceId = $deviceResponse.Id.Value
+    if (-not $deviceId) {
+        Write-Host "❌ Failed to retrieve device ID for serial: $serial"
         continue
     }
 
-    # Retrieve detailed device info
-    $deviceDetail = Invoke-RestMethod -Uri "$ws1EnvUrl/mdm/devices/$($searchResponse.Id.Value)" -Headers @{ Authorization = "Bearer $accessToken"; Accept = "application/json" }
+    $lostModeUri = "$ws1EnvUrl/mdm/devices/$deviceId/lostmode"
+    if ($action -eq 'e') {
+        Write-Host "📳 Enabling Lost Mode for $serial..."
+        $body = @{
+            Message  = "This device has been locked by IT. Please return to your supervisor."
+            Phone    = "0000000000"
+            Footnote = "ChristianaCare IT Dept."
+        } | ConvertTo-Json
 
-    # Display summary of device details
-    $details = @(
-        "📱 Device Information",
-        "-----------------------------",
-        "Device ID: $($deviceDetail.Id.Value)",
-        "Last Seen: $($deviceDetail.LastSeen)",
-        "Device Name: $($deviceDetail.DeviceFriendlyName)",
-        "Serial Number: $($deviceDetail.SerialNumber)",
-        "MAC Address: $($deviceDetail.MacAddress)",
-        "Location Group: $($deviceDetail.LocationGroupName)",
-        "User Name: $($deviceDetail.UserName)",
-        "User Email: $($deviceDetail.UserEmailAddress)",
-        "Model: $($deviceDetail.Model)",
-        "Operating System: $($deviceDetail.OperatingSystem)",
-        "Enrollment Status: $($deviceDetail.EnrollmentStatus)",
-        "Last Enrolled On: $($deviceDetail.LastEnrolledOn)",
-        "Ownership: $($deviceDetail.Ownership)",
-        "Compliance Status: $($deviceDetail.ComplianceStatus)",
-        "Last Compliance Check: $($deviceDetail.LastComplianceCheckOn)",
-        ""
-    )
-    $details | ForEach-Object { Write-Host $_ }
-
-    # Use UUID if available
-    $uuid = if ($deviceDetail.Id.Uuid) { $deviceDetail.Id.Uuid } else { $deviceDetail.Uuid }
-
-    # Prompt for action
-    $action = Read-Host "Would you like to ENABLE or DISABLE Lost Mode for $serial? [enable/disable/skip]"
-    Write-Host ""
-
-    if ($action -eq "enable") {
-        $lockMsg = Read-Host "Enter the message to display on the lock screen"
-        Write-Host ""
-
-        $body = @{ footnote = "ACME IT"; message = $lockMsg; phone_number = "123-123-4567" } | ConvertTo-Json
-        try {
-            Invoke-RestMethod -Uri "$lostModeApiBase/$uuid/lostmode/true" -Method Put -Headers @{
-                Authorization  = "Bearer $accessToken"
-                Accept         = "application/json;version=1"
-                'Content-Type' = "application/json"
-            } -Body $body
-            Write-Host "✅ Lost Mode has been ENABLED for $serial"
-        } catch {
-            $msg = $_.ErrorDetails.Message | ConvertFrom-Json | Select-Object -ExpandProperty message
-            Write-Host "⚠️ $msg"
+        Invoke-RestMethod -Uri $lostModeUri -Method Post -Body $body -Headers @{
+            Authorization = "Bearer $accessToken"
+            Accept        = "application/json"
+            "Content-Type" = "application/json"
         }
-
-    } elseif ($action -eq "disable") {
-        $body = @{ header = "ACME IT"; message = "Lost Mode cleared."; phone_number = "IT Service Desk: 123-123-4567" } | ConvertTo-Json
-        try {
-            Invoke-RestMethod -Uri "$lostModeApiBase/$uuid/lostmode/false" -Method Put -Headers @{
-                Authorization  = "Bearer $accessToken"
-                Accept         = "application/json;version=1"
-                'Content-Type' = "application/json"
-            } -Body $body
-            Write-Host "🚫 Lost Mode has been DISABLED for $serial"
-        } catch {
-            $msg = $_.ErrorDetails.Message | ConvertFrom-Json | Select-Object -ExpandProperty message
-            Write-Host "⚠️ $msg"
-        }
-
+        Write-Host "✅ Lost Mode enabled."
     } else {
-        Write-Host "⏭️ Skipped Lost Mode action for $serial."
+        Write-Host "🔓 Disabling Lost Mode for $serial..."
+        Invoke-RestMethod -Uri $lostModeUri -Method Delete -Headers @{
+            Authorization = "Bearer $accessToken"
+            Accept        = "application/json"
+        }
+        Write-Host "✅ Lost Mode disabled."
     }
-
-    Write-Host ""
 }
-
-Write-Host "✅ Done."
