@@ -1,153 +1,96 @@
-# -----------------------------------------------------------------------------
-# Script Name: Delete.ps1
-# Purpose: Look up and optionally delete one or more devices in Workspace ONE by serial number
-# Description:
-#   This script accepts a list of device serial numbers, retrieves their details
-#   from Workspace ONE via the API, logs the results, and gives the user the option
-#   to delete them. OAuth is used for authentication with token caching.
-# -----------------------------------------------------------------------------
+<#
+.SYNOPSIS
+Deletes one or more devices from Workspace ONE using serial numbers.
 
-# --------------------------------
+.DESCRIPTION
+This script authenticates using a shared OAuth token and deletes devices from 
+Workspace ONE UEM by serial number. It validates serials and logs each deletion.
+
+.VERSION
+v1.3.0
+#>
+
+# -------------------------------
 # CONFIGURATION
-# --------------------------------
+# -------------------------------
+$TokenCacheFile = "C:\Path\To\Shared\Token\ws1_token_cache.json"
+$WS1EnvUrl      = "https://yourenv.awmdm.com/API"
+$TenantCode     = "YOUR_TENANT_CODE"
+$OutputFile     = "$HOME\Downloads\Deleted Devices.txt"
 
-# OAuth and API configuration
-$OAuthDir       = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
-$TokenCacheFile = "$OAuthDir\ws1_token_cache.json"
-$TokenLifetimeSeconds = 3600
-
-# Workspace ONE environment details (replace placeholders for deployment)
-$WS1EnvUrl    = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
-$TenantCode   = "YOUR_TENANT_CODE"
-
-# Output directory and file
-$OutputDir  = "\\HOST_SERVER\MobileManagementTool\Delete"
-$OutputFile = "$HOME\Downloads\Deleted Devices.txt"
-
-# Ensure output directory exists
-if (-not (Test-Path $OutputDir)) {
-    New-Item -ItemType Directory -Path $OutputDir | Out-Null
-}
-
-# Clear previous output file if it exists
-Clear-Content -Path $OutputFile -ErrorAction SilentlyContinue
-
-# --------------------------------
+# -------------------------------
 # FUNCTIONS
-# --------------------------------
+# -------------------------------
 
-# Retrieves a cached token if valid, or exits with warning
+# Retrieves token from cache
 function Get-WS1Token {
-    if (Test-Path $TokenCacheFile) {
-        $age = (Get-Date) - (Get-Item $TokenCacheFile).LastWriteTime
-        if ($age.TotalSeconds -lt $TokenLifetimeSeconds) {
-            return (Get-Content $TokenCacheFile | ConvertFrom-Json).access_token
-        }
+    if (-Not (Test-Path $TokenCacheFile)) {
+        Write-Host "❌ Token cache not found at $TokenCacheFile" -ForegroundColor Red
+        exit 1
     }
 
-    Write-Host "❌ Access token is missing or expired. Please wait for the hourly renewal task or contact IT support."
-    exit 1
+    try {
+        $tokenData = Get-Content $TokenCacheFile | ConvertFrom-Json
+        return $tokenData.access_token
+    } catch {
+        Write-Host "❌ Failed to parse token cache." -ForegroundColor Red
+        Write-Host $_.Exception.Message
+        exit 1
+    }
 }
 
-# --------------------------------
+# Deletes a single device by device ID
+function Delete-DeviceById {
+    param (
+        [string]$deviceId,
+        [string]$serial
+    )
+
+    $response = Invoke-RestMethod -Method Delete -Uri "$WS1EnvUrl/mdm/devices/$deviceId" -Headers @{
+        Authorization   = "Bearer $AccessToken"
+        Accept          = "application/json"
+        "aw-tenant-code"= $TenantCode
+    }
+
+    if ($response.Status -eq "Success" -or !$response.Status) {
+        Write-Host "🗑️  Successfully deleted device: $serial"
+        Add-Content -Path $OutputFile -Value "$serial"
+    } else {
+        Write-Host "❌ Failed to delete device: $serial"
+        Write-Host "Message: $($response.message)"
+    }
+}
+
+# -------------------------------
 # MAIN
-# --------------------------------
+# -------------------------------
 
-echo ""
-Write-Host "Delete Device(s)"
+$AccessToken = Get-WS1Token
 
-# Prompt for input and sanitize
+Write-Host "`n📘 Delete Device(s)" -ForegroundColor Cyan
 $Input = Read-Host "Enter one or more 10- or 12-character serial numbers (comma-separated)"
 $Serials = $Input -split ',' | ForEach-Object { $_.Trim() }
 
-# Validate serials
 foreach ($serial in $Serials) {
     if ($serial -notmatch '^[A-Za-z0-9]{10,12}$') {
         Write-Host "❌ Invalid serial number: $serial (must be exactly 10 or 12 characters)" -ForegroundColor Red
-        exit 1
+        continue
     }
 
-    if ($serial -ieq "HUBNOSERIAL") {
-        Write-Host "🚫 The serial number '$serial' is a placeholder used by Android devices." -ForegroundColor Yellow
-        Write-Host "❌ Device deletion is not supported for Android devices at this time." -ForegroundColor Red
-        exit 1
+    Write-Host "`n🔍 Looking up device ID for serial: $serial..."
+    $device = Invoke-RestMethod -Method Get -Uri "$WS1EnvUrl/mdm/devices?searchby=Serialnumber&id=$serial" -Headers @{
+        Authorization   = "Bearer $AccessToken"
+        Accept          = "application/json"
+        "aw-tenant-code"= $TenantCode
     }
+
+    $deviceId = $device.Id.Value
+    if (-not $deviceId) {
+        Write-Host "❌ Device not found for serial: $serial"
+        continue
+    }
+
+    Delete-DeviceById -deviceId $deviceId -serial $serial
 }
 
-Write-Host "`nYou entered the following identifiers:"
-$Serials | ForEach-Object { Write-Host "- $_" }
-Write-Host ""
-
-# Get API token
-$AccessToken = Get-WS1Token
-$DeviceMap = @{}
-
-Write-Host "📋 Retrieving device details from Workspace ONE..."
-
-# Retrieve details for each device
-foreach ($serial in $Serials) {
-    $url = "$WS1EnvUrl/mdm/devices?searchby=Serialnumber&id=$serial"
-    $response = Invoke-RestMethod -Uri $url -Headers @{
-        "Authorization" = "Bearer $AccessToken"
-        "Accept"        = "application/json"
-    } -Method Get
-
-    if ($response.Id.Value) {
-        $DeviceId = $response.Id.Value
-        $DeviceMap[$serial] = $DeviceId
-
-        # Build readable summary
-        $fields = @(
-            "📱 Device Information",
-            "-----------------------------",
-            "Device ID: $($response.Id.Value)",
-            "Last Seen: $($response.LastSeen)",
-            "Device Name: $($response.DeviceFriendlyName)",
-            "Serial Number: $($response.SerialNumber)",
-            "MAC Address: $($response.MacAddress)",
-            "Location Group: $($response.LocationGroupName)",
-            "User Name: $($response.UserName)",
-            "User Email: $($response.UserEmailAddress)",
-            "Model: $($response.Model)",
-            "Operating System: $($response.OperatingSystem)",
-            "Enrollment Status: $($response.EnrollmentStatus)",
-            "Last Enrolled On: $($response.LastEnrolledOn)",
-            "Ownership: $($response.Ownership)",
-            "Compliance Status: $($response.ComplianceStatus)",
-            "Last Compliance Check: $($response.LastComplianceCheckOn)",
-            ""
-        )
-        $fields | Tee-Object -FilePath $OutputFile -Append
-    }
-    else {
-        Write-Host "⚠️ No device found for serial: $serial"
-    }
-}
-
-Write-Host "`n📝 Results saved to $OutputFile`n"
-
-# --------------------------------
-# PROMPT FOR DELETION
-# --------------------------------
-
-$confirm = Read-Host "❗ Would you like to delete the devices listed above? (y/n)"
-if ($confirm -match '^[Yy]$') {
-    Write-Host "`n🗑️ Preparing to delete devices..."
-
-    foreach ($pair in $DeviceMap.GetEnumerator()) {
-        $serial = $pair.Key
-        $deviceId = $pair.Value
-
-        $deleteUrl = "$WS1EnvUrl/mdm/devices/$deviceId"
-        Invoke-RestMethod -Uri $deleteUrl -Headers @{
-            "Authorization"  = "Bearer $AccessToken"
-            "accept"         = "application/json;version=1"
-            "aw-tenant-code" = $TenantCode
-        } -Method Delete -ErrorAction SilentlyContinue | Out-Null
-
-        Write-Host "✅ Deleted device: $serial (Device ID: $deviceId)"
-    }
-}
-else {
-    Write-Host "🛑 Skipping device deletion."
-}
+Write-Host "`n✅ Deletion complete. Log saved to: $OutputFile"
