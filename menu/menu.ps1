@@ -1,38 +1,114 @@
-# -----------------------------------------------------------------------------
-# Script Name: menu.ps1
-# Purpose: Main menu interface for the WS1 Mobile Management Tool
-# Description:
-#   Provides an interactive CLI menu for common Workspace ONE device actions.
-#   Logs all activity per session. Includes hostname validation and idle timeout.
-# -----------------------------------------------------------------------------
+<#
+.SYNOPSIS
+Main entry point for the Workspace ONE Mobile Management Tool.
 
+.DESCRIPTION
+This menu script provides IT administrators with a centralized interface 
+for managing Workspace ONE devices. It handles token validation, session 
+logging, device counts, and script execution. Includes inactivity timeout 
+and device count telemetry.
+
+.VERSION
+v1.3.0
+#>
 
 # --------------------------------
 # HOSTNAME VALIDATION
 # --------------------------------
-$validHosts = @('HOST1', 'HOST2', 'HOST3')
+$validHosts = @('HOSTNAME_1', 'HOSTNAME_2', 'HOSTNAME_3', 'HOSTNAME_4', 'HOSTNAME_5', 'HOSTNAME_6', 'HOSTNAME_7')
 $currentHost = $env:COMPUTERNAME
 
 Start-Sleep -Seconds 2
 
 if ($validHosts -notcontains $currentHost) {
-    Write-Host "❌ This script can only be run on: HOST1, HOST2, HOST3" -ForegroundColor Red
+    Write-Host "❌ This script can only be run on authorized IT hosts." -ForegroundColor Red
     Stop-Process -Id $PID
 }
 
+# -------------------------------
+# CONFIGURATION
+# -------------------------------
+$ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com"
+$TokenPath = "\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cache.json"
+$uuid = "YOUR_ORG_GROUP_UUID"
+
+# -------------------------------
+# Get OAuth Token from Cache
+# -------------------------------
+function Get-WS1Token {
+    $tokenData = Get-Content $TokenPath | ConvertFrom-Json
+    return $tokenData.access_token
+}
+
+# -------------------------------
+# Get Enrolled Device Count
+# -------------------------------
+function Get-EnrolledDeviceCount {
+    param (
+        [string]$uuid = $null
+    )
+
+    $token = Get-WS1Token
+    $headers = @{
+        "Authorization" = "Bearer $token"
+        "Accept"        = "*/*"
+        "Content-Type"  = "application/json"
+    }
+
+    $url = "$ws1EnvUrl/api/mdm/devices/enrolleddevicescount"
+
+    $body = if ($uuid) {
+        @{ uuid = $uuid } | ConvertTo-Json -Compress
+    } else {
+        '{}'  # Empty JSON object
+    }
+
+    try {
+        $response = Invoke-RestMethod -Uri $url -Headers $headers -Method Post -Body $body
+        return $response
+    } catch {
+        Write-Error "❌ Failed to get enrolled device count: $_"
+    }
+}
+
+# -------------------------------
+# Token Status
+# -------------------------------
+function Get-TokenStatus {
+    param (
+        [string]$TokenPath,
+        [int]$MaxAgeMinutes = 60
+    )
+
+    if (!(Test-Path $TokenPath)) {
+        return "❌ Offline"
+    }
+
+    $tokenAge = ((Get-Date) - (Get-Item $TokenPath).LastWriteTime).TotalMinutes
+    if ($tokenAge -lt $MaxAgeMinutes) {
+        return "✅ Online"
+    } else {
+        return "❌ Offline"
+    }
+}
+
+# -------------------------------
+# Show Menu
+# -------------------------------
 function Show-Menu {
     Clear-Host
     Write-Host "!!! Authorized Use Only !!!" -ForegroundColor Yellow
-    Write-Host "This tool is for ACME IT use only. Unauthorized use or modification is strictly prohibited." -ForegroundColor Green
+    Write-Host "This tool is for internal IT use only. Unauthorized use or modification is prohibited." -ForegroundColor Green
     Write-Host "PROD Logged in as: $env:USERNAME on $env:COMPUTERNAME" -ForegroundColor Gray
     echo ""
+    Write-Host " Devices: $($response.DevicesCount)            Status: $tokenStatus" -ForegroundColor Gray
     Write-Host " --------------------------------------------" 
-    Write-Host "|  ACME Mobile Management Tool               |" -ForegroundColor Cyan
+    Write-Host "|  Workspace ONE Mobile Management Tool      |" -ForegroundColor Cyan
     Write-Host " --------------------------------------------" 
     Write-Host "|  1) Restart device(s)                      |"
     Write-Host "|  2) Device(s) Details/Information          |"
     Write-Host "|  3) Add/Remove Tag                         |"
-    Write-Host "|  4) DEP Assign/Unassign                    |"
+    Write-Host "|  4) ADE (DEP) Assign/Unassign              |"
     Write-Host "|  5) Clear Passcode                         |"
     Write-Host "|  6) Device Wipe                            |"
     Write-Host "|  7) Apps Query                             |"
@@ -41,6 +117,7 @@ function Show-Menu {
     Write-Host "| 10) Device Event Log (1000 Entries)        |"
     Write-Host "| 11) Delete Device(s)                       |"
     Write-Host "| 12) Enable/Disable Lost Mode               |"
+    Write-Host "| 13) Update iOS/iPadOS                      |"
     Write-Host "|  0) Exit                                   |" -ForegroundColor Red
     Write-Host " --------------------------------------------"
 }
@@ -76,7 +153,7 @@ function Log-Action($message) {
 Log-Action "Session started"
 
 # --------------------------------
-# NON-BLOCKING INPUT WITH TIMEOUT
+# Get Input With Timeout
 # --------------------------------
 function Get-UserInputWithTimeout {
     param (
@@ -85,7 +162,7 @@ function Get-UserInputWithTimeout {
     $startTime = Get-Date
     $inputBuffer = ""
 
-    Write-Host "`nSelect an option [0-12] (timeout in $timeoutSeconds sec):" -NoNewline
+    Write-Host "`nSelect an option [0-13] (timeout in $timeoutSeconds sec):" -NoNewline
 
     while (((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) {
         if ([Console]::KeyAvailable) {
@@ -114,22 +191,25 @@ function Get-UserInputWithTimeout {
     }
 
     Write-Host "`n⏳ Session timed out due to inactivity. Exiting..." -ForegroundColor Yellow
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $entry = "$timestamp | User: $env:USERNAME | Host: $env:COMPUTERNAME | Action: Session timeout - script exited"
-    Add-Content -Path $sessionLogPath -Value $entry
+    Log-Action "Session timeout - script exited"
     exit
 }
 
 # --------------------------------
-# MAIN LOOP WITH VALIDATION
+# MAIN LOOP
 # --------------------------------
 while ($true) {
+    $response = Get-EnrolledDeviceCount
+    if (-not $response) { $response = @{ DevicesCount = "N/A" } }
+
+    $tokenStatus = Get-TokenStatus -TokenPath $TokenPath
+
     Show-Menu
 
     $choice = Get-UserInputWithTimeout
 
-    if ($null -eq $choice -or $choice -notmatch '^\d+$' -or [int]$choice -lt 0 -or [int]$choice -gt 12) {
-        Write-Host "`n❌ Invalid input. Please enter a number between 0 and 12." -ForegroundColor Red
+    if ($null -eq $choice -or $choice -notmatch '^\d+$' -or [int]$choice -lt 0 -or [int]$choice -gt 13) {
+        Write-Host "`n❌ Invalid input. Please enter a number between 0 and 13." -ForegroundColor Red
         Start-Sleep -Seconds 2
         continue
     }
@@ -153,6 +233,7 @@ while ($true) {
         '10' { Log-Action "Device Event Log (1000 Entries)"; Run-Script "\\HOST_SERVER\MobileManagementTool\Device Event Log\Device Event Log.ps1" }
         '11' { Log-Action "Delete Device(s)"; Run-Script "\\HOST_SERVER\MobileManagementTool\Delete\Delete.ps1" }
         '12' { Log-Action "Enable/Disable Lost Mode"; Run-Script "\\HOST_SERVER\MobileManagementTool\Lost Mode\LostMode.ps1" }
+        '13' { Log-Action "Update iOS/iPadOS"; Run-Script "\\HOST_SERVER\MobileManagementTool\Update iOS\Update iOS.ps1" }
     }
 
     Write-Host "`nPress Enter to return to the main menu..."
