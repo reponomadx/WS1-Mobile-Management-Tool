@@ -224,7 +224,7 @@ while ($true) {
         '1'  { Log-Action "Restart device(s)"; Run-Script "\\HOST_SERVER\MobileManagementTool\Restart Device\Restart Device.ps1" }
         '2'  { Log-Action "Device(s) Details/Information"; Run-Script "\\HOST_SERVER\MobileManagementTool\Device Details\Device Details.ps1" }
         '3'  { Log-Action "Add/Remove Tag"; Run-Script "\\HOST_SERVER\MobileManagementTool\AddRemove Tag\AddRemove Tag.ps1" }
-        '4'  { Log-Action "DEP Assign/Unassign"; Run-Script "\\HOST_SERVER\MobileManagementTool\DEP\Assign or Unassign DEP.ps1" }
+        '4'  { Log-Action "ADE (DEP) Assign/Unassign"; Run-Script "\\HOST_SERVER\MobileManagementTool\DEP\Assign or Unassign DEP.ps1" }
         '5'  { Log-Action "Clear Passcode"; Run-Script "\\HOST_SERVER\MobileManagementTool\Clear Passcode\Clear Passcode.ps1" }
         '6'  { Log-Action "Device Wipe"; Run-Script "\\HOST_SERVER\MobileManagementTool\Device Wipe\Device Wipe.ps1" }
         '7'  { Log-Action "Apps Query"; Run-Script "\\HOST_SERVER\MobileManagementTool\Apps\Apps.ps1" }
