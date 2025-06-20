@@ -1,47 +1,52 @@
-# -----------------------------------------------------------------------------
-# Script Name: Device Event Log.ps1
-# Purpose: Retrieve the 1,000 most recent Workspace ONE event log entries
-# Description:
-#   This script allows IT administrators to pull the latest device event logs
-#   from Workspace ONE based on a provided serial number. It uses OAuth token
-#   authentication and outputs results to a timestamped log file in the user's
-#   Downloads folder for easy reference and audit purposes.
-# -----------------------------------------------------------------------------
+<#
+.SYNOPSIS
+Retrieves the 1000 most recent device events for a given serial number.
 
-# -------------------------------
+.DESCRIPTION
+This script authenticates with Workspace ONE using a shared OAuth token and fetches 
+the latest event log data for the specified device serial number. Results are saved 
+to the user’s Downloads folder as a timestamped `.log` file.
+
+.VERSION
+v1.3.0
+#>
+
+# --------------------------------
 # CONFIGURATION
-# -------------------------------
+# --------------------------------
 $UserDownloads = Join-Path ([Environment]::GetFolderPath("UserProfile")) "Downloads"
 $LogFile = Join-Path $UserDownloads "DeviceEventLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 
 Start-Transcript -Path $LogFile -Append
 
-$OAuthDir           = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
-$TokenCacheFile     = "$OAuthDir\ws1_token_cache.json"
-$TokenLifetimeSeconds = 3600
-
-$TenantCode   = "YOUR_TENANT_CODE"
+$TokenCacheFile = "\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cache.json"
+$TenantCode     = "YOUR_OMNISSA_TENANT_CODE"
+$ws1EnvUrl      = "https://YOUR_OMNISSA_ENV.awmdm.com/api"
 
 # -------------------------------
-# TOKEN FUNCTION
+# Get OAuth Token from Cache
 # -------------------------------
 function Get-WS1Token {
-    if (Test-Path $TokenCacheFile) {
-        $age = (Get-Date) - (Get-Item $TokenCacheFile).LastWriteTime
-        if ($age.TotalSeconds -lt $TokenLifetimeSeconds) {
-            return (Get-Content $TokenCacheFile | ConvertFrom-Json).access_token
-        }
+    if (-Not (Test-Path $TokenCacheFile)) {
+        Write-Host "❌ Token cache not found at $TokenCacheFile" -ForegroundColor Red
+        exit 1
     }
 
-    Write-Host "❌ Access token missing or expired. Please wait for the hourly renewal task or contact IT support."
-    Stop-Transcript
-    exit 1
+    try {
+        $tokenData = Get-Content $TokenCacheFile | ConvertFrom-Json
+        return $tokenData.access_token
+    }
+    catch {
+        Write-Host "❌ Failed to parse token cache." -ForegroundColor Red
+        Write-Host $_.Exception.Message
+        exit 1
+    }
 }
 
-# -------------------------------
+# --------------------------------
 # MAIN
-# -------------------------------
-Write-Host "`nDevice Event Log (1000 Entries)"
+# --------------------------------
+Write-Host "`n📜 Device Event Log (1000 Entries)" -ForegroundColor Cyan
 $Serial = Read-Host "Enter a 10 or 12-character serial number"
 if ($Serial -notmatch '^[A-Za-z0-9]{10,12}$') {
     Write-Host "❌ Invalid serial number: $Serial"
@@ -50,32 +55,41 @@ if ($Serial -notmatch '^[A-Za-z0-9]{10,12}$') {
 }
 
 $AccessToken = Get-WS1Token
-$EventUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/api/mdm/devices/eventlog?searchBy=Serialnumber&id=$Serial&pagesize=1000"
 
-Write-Host "`n📋 Querying event log for serial number: $Serial"
+# Get Device ID
+Write-Host "🔍 Looking up Device ID for serial: $Serial"
+$searchUrl = "$ws1EnvUrl/mdm/devices?searchby=Serialnumber&id=$Serial"
+$device = Invoke-RestMethod -Uri $searchUrl -Headers @{
+    Authorization   = "Bearer $AccessToken"
+    Accept          = "application/json"
+    "aw-tenant-code"= $TenantCode
+}
 
-try {
-    $EventResponse = Invoke-RestMethod -Uri $EventUrl -Headers @{
-        "accept"          = "application/json;version=1"
-        "Authorization"   = "Bearer $AccessToken"
-        "aw-tenant-code"  = $TenantCode
-    } -Method Get
-} catch {
-    Write-Host "❌ Failed to retrieve event logs. Error: $($_.Exception.Message)"
+if (-not $device.Id.Value) {
+    Write-Host "❌ Device not found for serial: $Serial"
     Stop-Transcript
     exit 1
 }
 
-# -------------------------------
-# OUTPUT
-# -------------------------------
-if (-not $EventResponse.DeviceEventLogEntries) {
-    Write-Host "⚠️  No event log entries found for serial number $Serial."
-} else {
-    Write-Host "`n📝 Event Log Entries:"
-    $EventResponse.DeviceEventLogEntries | ForEach-Object {
-        "$($_.TimeStamp)`t$($_.Severity)`t$($_.Source)`t$($_.Event)`t$($_.AdminAccount)"
-    }
+$deviceId = $device.Id.Value
+Write-Host "✅ Device ID: $deviceId"
+
+# Fetch Events
+$eventsUrl = "$ws1EnvUrl/mdm/devices/$deviceId/events"
+$events = Invoke-RestMethod -Uri $eventsUrl -Headers @{
+    Authorization   = "Bearer $AccessToken"
+    Accept          = "application/json"
+    "aw-tenant-code"= $TenantCode
 }
-echo ""
+
+Write-Host "`n📄 Event Log Output"
+Write-Host "----------------------"
+
+foreach ($event in $events | Select-Object -First 1000) {
+    $line = "$($event.EventTime) [$($event.EventType)] - $($event.EventData)"
+    Write-Host $line
+    $line | Out-File -FilePath $LogFile -Append
+}
+
+Write-Host "`n🗘 Results saved to $LogFile"
 Stop-Transcript
