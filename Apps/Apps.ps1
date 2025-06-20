@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-Retrieves installed applications and app assignment details for a device.
+Retrieves installed applications from Workspace ONE devices.
 
 .DESCRIPTION
-This script uses a cached OAuth token to authenticate with Workspace ONE and 
-query installed applications on a device by serial number. Outputs details to a CSV.
+This script uses a shared OAuth token to query Workspace ONE UEM and retrieve 
+installed app data from devices using serial numbers or user IDs. Results are 
+written to a CSV file in the user's Downloads folder and displayed in the console.
 
 .VERSION
 v1.3.0
@@ -13,23 +14,24 @@ v1.3.0
 # -------------------------------
 # CONFIGURATION
 # -------------------------------
-$TokenCacheFile = "C:\Path\To\Shared\Token\ws1_token_cache.json"
-$Ws1EnvUrl = "https://yourenv.awmdm.com/API"
-$OutputDir = "$HOME\Downloads"
-$CsvFile = "$OutputDir\device_apps.csv"
+$OAuthDir        = "\\HOST_SERVER\MobileManagementTool\Oauth Token"
+$TokenCacheFile  = "$OAuthDir\ws1_token_cache.json"
+$Ws1EnvUrl       = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
+$TokenUrl        = "https://na.uemauth.workspaceone.com/connect/token"
 
-# Ensure output directory exists and prepare CSV file
+$OutputDir       = "$HOME\Downloads"
+$CsvFile         = "$OutputDir\device_apps.csv"
+
 if (-not (Test-Path $OutputDir)) {
     New-Item -Path $OutputDir -ItemType Directory | Out-Null
 }
+
 "" | Set-Content $CsvFile
 "Device Name,Serial Number,App Name,Assignment Status,Installed Status,Installed Version,Latest UEM Action" | Add-Content $CsvFile
 
 # -------------------------------
-# FUNCTIONS
+# Get OAuth Token from Cache
 # -------------------------------
-
-# Retrieves token from cache
 function Get-WS1Token {
     if (-Not (Test-Path $TokenCacheFile)) {
         Write-Host "❌ Token cache not found at $TokenCacheFile" -ForegroundColor Red
@@ -39,14 +41,17 @@ function Get-WS1Token {
     try {
         $tokenData = Get-Content $TokenCacheFile | ConvertFrom-Json
         return $tokenData.access_token
-    } catch {
+    }
+    catch {
         Write-Host "❌ Failed to parse token cache." -ForegroundColor Red
         Write-Host $_.Exception.Message
         exit 1
     }
 }
 
-# Retrieves app info by device UUID
+# -------------------------------
+# Helper: Get Installed Apps
+# -------------------------------
 function Get-AppInfo {
     param (
         [string]$uuid,
@@ -55,50 +60,122 @@ function Get-AppInfo {
     )
 
     Write-Host "`n📦 Installed Applications for Device: $deviceName ($serial)"
-    Write-Host "----------------------------------------------"
+    Write-Host "------------------------------------------"
 
-    $apps = Invoke-RestMethod -Method Get -Uri "$Ws1EnvUrl/mdm/devices/$uuid/apps" -Headers @{
-        Authorization   = "Bearer $AccessToken"
-        Accept          = "application/json"
-    }
+    try {
+        $appResponse = Invoke-RestMethod -Uri "$Ws1EnvUrl/mdm/devices/$uuid/apps/search" -Headers @{
+            "Authorization" = "Bearer $accessToken"
+            "Accept"        = "application/json;version=1"
+        }
 
-    foreach ($app in $apps.DeviceApps) {
-        $line = "$deviceName,$serial,$($app.ApplicationName),$($app.AssignmentStatus),$($app.InstallStatus),$($app.InstalledVersion),$($app.LastActionOnInstall)"
-        Add-Content -Path $CsvFile -Value $line
-        Write-Host "$($app.ApplicationName) — $($app.InstallStatus) ($($app.InstalledVersion))"
+        if (-not $appResponse.app_items) {
+            Write-Host "No app data found."
+            return
+        }
+
+        foreach ($app in $appResponse.app_items) {
+            Write-Host "• $($app.name)"
+            Write-Host "   - Assigned: $($app.assignment_status)"
+            Write-Host "   - Installed: $($app.installed_status)"
+            Write-Host "   - Installed Version: $($app.installed_version)"
+            Write-Host "   - Action: $($app.latest_uem_action)"
+
+            "$deviceName,$serial,$($app.name),$($app.assignment_status),$($app.installed_status),$($app.installed_version),$($app.latest_uem_action)" |
+                Add-Content -Path $CsvFile
+        }
+    } catch {
+        Write-Host "❌ Error retrieving apps for $deviceName ($serial)"
+        Write-Host $_.Exception.Message
     }
 }
 
 # -------------------------------
 # MAIN
 # -------------------------------
+Write-Host "`n📋 Apps (Query)" -ForegroundColor Cyan
+Write-Host "Choose search type:"
+Write-Host "1. Serial Number"
+Write-Host "2. User ID"
+$searchOption = Read-Host "Enter option [1-2]"
 
-$AccessToken = Get-WS1Token
+$apiMode = ""
+$identifiers = @()
 
-Write-Host "`n📘 Installed Apps Lookup" -ForegroundColor Cyan
-$serialInput = Read-Host "Enter one or more device serial numbers (comma-separated)"
-if ([string]::IsNullOrWhiteSpace($serialInput)) {
-    Write-Host "❌ No serial number(s) provided. Exiting."
+if ($searchOption -eq "1") {
+    $apiMode = "serial"
+    $input = Read-Host "`nEnter one or more 10/12-character serial numbers (comma-separated)"
+    $input -split "," | ForEach-Object {
+        $id = $_.Trim()
+        if ($id -notmatch '^[A-Za-z0-9]{10,12}$') {
+            Write-Host "❌ Invalid serial number: $id"
+            exit 1
+        }
+        $identifiers += $id
+    }
+}
+elseif ($searchOption -eq "2") {
+    $apiMode = "user"
+    $input = Read-Host "`nEnter one or more User IDs (comma-separated)"
+    $identifiers = $input -split "," | ForEach-Object { $_.Trim() }
+}
+else {
+    Write-Host "❌ Invalid option selected."
     exit 1
 }
-$serials = $serialInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
 
-foreach ($serial in $serials) {
-    Write-Host "`n🔍 Looking up device by serial: $serial..."
-    $device = Invoke-RestMethod -Method Get -Uri "$Ws1EnvUrl/mdm/devices?searchby=Serialnumber&id=$serial" -Headers @{
-        Authorization   = "Bearer $AccessToken"
-        Accept          = "application/json"
+Write-Host "`nYou entered the following identifiers:`n"
+$identifiers | ForEach-Object { Write-Host "- $_" }
+
+$accessToken = Get-WS1Token
+Write-Host "`n🔍 Retrieving device details from Workspace ONE..."
+
+foreach ($id in $identifiers) {
+    try {
+        if ($apiMode -eq "serial") {
+            $response = Invoke-RestMethod "$Ws1EnvUrl/mdm/devices?searchby=Serialnumber&id=$id" -Headers @{
+                "Authorization" = "Bearer $accessToken"
+                "Accept"        = "application/json"
+            }
+
+            $uuid = $response.Uuid
+            $deviceName = $response.DeviceFriendlyName
+            $serial = $response.SerialNumber
+
+            if ([string]::IsNullOrEmpty($uuid) -or $uuid -eq "null") {
+                Write-Host "⚠️  Device UUID is missing or invalid for serial: $serial"
+                continue
+            }
+
+            Get-AppInfo -uuid $uuid -deviceName $deviceName -serial $serial
+        }
+        else {
+            $response = Invoke-RestMethod "$Ws1EnvUrl/mdm/devices/search?user=$id" -Headers @{
+                "Authorization" = "Bearer $accessToken"
+                "Accept"        = "application/json"
+            }
+
+            if (-not $response.Devices) {
+                Write-Host "❌ No devices found for user: $id"
+                continue
+            }
+
+            foreach ($device in $response.Devices) {
+                $uuid = $device.Uuid
+                $deviceName = $device.DeviceFriendlyName
+                $serial = $device.SerialNumber
+
+                if ([string]::IsNullOrEmpty($uuid) -or $uuid -eq "null") {
+                    Write-Host "⚠️  Skipping invalid device entry (no UUID)"
+                    continue
+                }
+
+                Get-AppInfo -uuid $uuid -deviceName $deviceName -serial $serial
+            }
+        }
+    } catch {
+        Write-Host "❌ Error retrieving device info for: $id"
+        Write-Host $_.Exception.Message
     }
-
-    if (-not $device.Id.Value) {
-        Write-Host "❌ Device not found for serial: $serial"
-        continue
-    }
-
-    $uuid = $device.Uid.Value
-    $deviceName = $device.DeviceFriendlyName
-
-    Get-AppInfo -uuid $uuid -deviceName $deviceName -serial $serial
 }
 
-Write-Host "`n✅ App data exported to: $CsvFile"
+Write-Host "`n✅ App data saved to: $CsvFile"
