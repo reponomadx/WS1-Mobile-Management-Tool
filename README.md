@@ -9,124 +9,116 @@
 
 ![Workspace ONE Tool](WS1-Mobile-Management-Tool.jpg)
 
-A modular PowerShell-based utility for Workspace ONE, purpose-built to streamline mobile device administration in enterprise environments.
+A modular PowerShell-based utility for Workspace ONE, built to streamline mobile device administration across large enterprise environments.
 
-Originally developed in Bash for macOS workflows, this tool has evolved into a robust cross-functional PowerShell suite that enables IT teams to:
+Originally developed in Bash for macOS, this tool is now a robust cross-platform suite for Windows, enabling IT teams to:
 
 - Query device details and installed profiles  
-- Reboot or wipe devices  
-- Push app installations  
-- Toggle Lost Mode  
-- Manage tags, Smart Groups, and DEP profiles  
+- Push or remove apps  
+- Reboot, wipe, or trigger OS updates  
+- Toggle Lost Mode and clear passcodes  
+- Manage tags, Smart Groups, DEP profiles, and more
+
+---
+
+## 🚀 New in v1.3.0
+
+- ✅ **OAuth centralization** — all scripts share one token cache
+- ✅ **Color-coded script headers** — Cyan titles for readability
+- ✅ **Graceful input handling** — no crashes on missing values
+- ✅ **Commented & documented scripts** — perfect for team sharing
+- ✅ **14 total scripts** — covering the full WS1 lifecycle
 
 ---
 
 ## 🛠️ Included Scripts
 
-Each script is standalone but callable from a centralized CLI menu:
+Each script is standalone, callable individually or via the menu:
 
 | Script | Function |
 |--------|----------|
 | `menu.ps1` | Interactive CLI menu |
-| `Profiles.ps1` | Export installed configuration profiles |
-| `Restart Device.ps1` | Reboot devices by serial |
-| `Wipe.ps1` | Full or enterprise wipe |
+| `Apps.ps1` | List assigned apps for a device |
 | `Install App.ps1` | Push assigned apps to a device |
-| `LostMode.ps1` | Enable or disable Lost Mode |
-| `Tag Edit.ps1` | Add or remove device tags |
-| `SmartGroup Lookup.ps1` | View Smart Group membership |
-| `Assign or Unassign DEP.ps1` | Assign/unassign DEP profiles *(OAuth now supported)* |
-| `EventLog.ps1` | Retrieve 1000 recent device event logs |
-| `Delete Devices.ps1` | Remove devices from WS1 by serial or user |
-| `Device Details.ps1` | Lookup basic device info |
 | `Install Purchased App.ps1` | Deploy VPP apps by serial |
-| `OauthRenew.ps1` | Renews OAuth token every hour |
-| `Oauth - Renew.bat` | Wrapper script for Task Scheduler automation |
-
-Also includes:  
-`WS1-Mobile-Management-Tool.bat` → launcher to run the menu.
+| `Profiles.ps1` | Export installed configuration profiles |
+| `Device Details.ps1` | Lookup basic device info |
+| `Device Event Log.ps1` | Retrieve 1000 recent logs |
+| `Restart Device.ps1` | Soft reboot device |
+| `Device Wipe.ps1` | Full or enterprise wipe |
+| `Update iOS.ps1` | Trigger iOS OS update |
+| `LostMode.ps1` | Enable or disable Lost Mode |
+| `Clear Passcode.ps1` | Clear passcode from locked device |
+| `AddRemove Tag.ps1` | Add/remove device tags |
+| `Assign or Unassign DEP.ps1` | Assign/unassign DEP profile |
+| `Delete.ps1` | Remove devices from WS1 |
 
 ---
 
-## 🔐 Authentication & Security (v1.2.0+)
+## 🔐 OAuth 2.0 Security
 
-All API calls use **OAuth 2.0** (`client_credentials` grant type) with **token reuse** across all scripts:
+All scripts authenticate via **OAuth 2.0** (`client_credentials`) with secure shared token cache:
 
-- Tokens are centrally stored at:  
+- Stored centrally:  
   `\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cache.json`
-- **Client ID and secret** are no longer embedded in any script
-- All Workspace ONE scripts check token age and read from this file
-- If expired or missing, user is prompted to wait for hourly renewal
-
-This eliminates write access requirements for general users and ensures all token logic is consolidated and secured.
+- Scripts do not include client credentials
+- Token reuse built-in; expires every 60 minutes
+- Users **do not need write access** to token directory
 
 ---
 
-## 🔁 OAuth Token Auto-Renewal
+## 🔁 Token Auto-Renewal (Scheduled Task)
 
-Tokens are refreshed hourly using Windows Task Scheduler.
+Tokens are auto-renewed hourly via Task Scheduler.
 
-### 🔧 Setup
+| File | Purpose |
+|------|---------|
+| `OauthRenew.ps1` | PowerShell token refresh script |
+| `Oauth - Renew.bat` | Wrapper for scheduled task |
+| `WS1 Oauth Token.xml` | Task Scheduler config |
+| `refresh.log` | Optional timestamp log file |
 
-| File | Description |
-|------|-------------|
-| `OauthRenew.ps1` | PowerShell script that renews the token |
-| `Oauth - Renew.bat` | Batch wrapper for scheduler |
-| `WS1 Oauth Token.xml` | Importable Task Scheduler config |
-| `refresh.log` | Optional log for token renewals |
-
-> 🛡️ Scripts now **require read-only access** to the shared token path — no write access needed.
-
----
-
-## 🚀 Getting Started
-
-1. Clone/download the repository  
-2. Extract and customize configuration paths  
-3. Place `WS1-Mobile-Management-Tool.bat` on a trusted IT workstation  
-4. Run the tool from that system only (non-portable)  
-5. Use menu or scripts individually  
+> 🛡️ Production-safe: read-only access required
 
 ---
 
 ## 📂 Output & Logs
 
-By default, scripts write to the user’s `Downloads` folder or shared folders like:
+Most scripts output to `Downloads` or shared folders:
 
 - `device_profiles.csv`
 - `WipedDevices.txt`
-- `EventLog_YYYYMMDD.log`
+- `EventLog_<date>.log`
+- `installed_apps_<serial>.csv`
 
 ---
 
-## ✅ System Requirements
+## 🧠 Intelligent Behavior
+
+- Scripts **validate input** and exit if missing
+- Output is formatted and readable
+- Designed for **internal use only** on trusted IT systems
+
+---
+
+## ✅ Requirements
 
 - PowerShell 5.1 or later  
-- Workspace ONE API client credentials (stored securely)  
-- Admin access to target devices (via WS1)  
-- Internal access to shared script and token paths  
+- Workspace ONE UEM API credentials  
+- Access to shared script/token folder  
+- Windows 10/11 machine (domain-joined recommended)
 
 ---
 
-## 🔒 Host-Based Trust Model
+## 🔒 Host Restriction Model
 
-This tool is designed to run only from **internal, IT-managed systems**.  
-All scripts reference trusted shares such as: `\\HOST_SERVER\MobileManagementTool\`  
-This prevents exfiltration or misuse on personal machines.
+Scripts are designed to run only from **trusted internal endpoints** with shared folder access (`\\HOST_SERVER\MobileManagementTool\`).
 
----
-
-## 📢 Community & Version
-
-Latest version: **v1.2.1**  
-Source:  
-🔗 [https://github.com/reponomadx/WS1-Mobile-Management-Tool](https://github.com/reponomadx/WS1-Mobile-Management-Tool)
-
-Discussions feedback or issues welcome.
+This protects token integrity and prevents misuse on personal devices.
 
 ---
 
 ## 📄 License
 
-MIT License — use, modify, distribute freely.  
-No warranty or liability provided.
+MIT License — use, modify, and distribute freely.  
+No warranties expressed or implied.
