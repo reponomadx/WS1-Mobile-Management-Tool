@@ -1,21 +1,24 @@
-# -----------------------------------------------------------------------------
-# Script Name: Device Details.ps1
-# Purpose: Lookup Workspace ONE device details by serial number or user ID
-# Description:
-#   This script allows IT administrators to retrieve key device information from
-#   Workspace ONE using either serial numbers or user IDs. It includes support for
-#   Smart Group and Tag lookups, and optionally allows querying devices for fresh
-#   data via the DeviceInformation or DeviceQuery command.
-# -----------------------------------------------------------------------------
+<#
+.SYNOPSIS
+Retrieves device details from Workspace ONE by serial number or user ID.
+
+.DESCRIPTION
+This script queries Workspace ONE UEM for detailed device information based on serial 
+numbers or user IDs. It supports output of Smart Groups, Tags, and optionally triggers 
+a DeviceInformation or DeviceQuery command for updated data. Token is pulled from a 
+shared OAuth cache, and results are saved to a timestamped text file in Downloads.
+
+.VERSION
+v1.3.0
+#>
 
 # -------------------------------
 # CONFIGURATION
 # -------------------------------
 $basePath = "\\HOST_SERVER\MobileManagementTool\Device Details"
 $TokenCacheFile = "\\HOST_SERVER\MobileManagementTool\Oauth Token\ws1_token_cache.json"
-$tokenLifetimeSeconds = 3600
 
-$ws1EnvUrl     = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
+$ws1EnvUrl = "https://YOUR_OMNISSA_ENV.awmdm.com/API"
 
 New-Item -ItemType Directory -Force -Path $basePath | Out-Null
 
@@ -38,7 +41,7 @@ function Get-WS1Token {
 # MAIN LOGIC
 # -------------------------------
 echo ""
-Write-Host "📱 Device Details"
+Write-Host "📱 Device Details" -ForegroundColor Cyan
 Write-Host "Choose search type:"
 Write-Host "1. Serial Number"
 Write-Host "2. User ID"
@@ -170,10 +173,10 @@ foreach ($id in $identifiers) {
                 if ($commandType) {
                     Write-Host "🛁 Requesting updated device information for: $($deviceDetail.SerialNumber)"
                     Invoke-RestMethod -Uri "$ws1EnvUrl/mdm/devices/$($deviceDetail.Id.Value)/commands?command=$commandType" -Method Post -Headers @{
-                        Authorization = "Bearer $accessToken"
-                        Accept        = "application/json"
-                        'Content-Type' = "application/json"
-                        'Content-Length' = 0
+                        Authorization     = "Bearer $accessToken"
+                        Accept            = "application/json"
+                        'Content-Type'    = "application/json"
+                        'Content-Length'  = 0
                     }
                     Write-Host "✅ Device information has been successfully requested.`n"
                 } else {
