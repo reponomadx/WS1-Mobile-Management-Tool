@@ -1,3 +1,4 @@
+<img src="reponomadx-logo.jpg" alt="reponomadx logo" width="250"/></img>
 # 📱 Workspace ONE Mobile Management Tool
 
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://docs.microsoft.com/powershell/)
